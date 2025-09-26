@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>HiveMatrix Template</title>
+</head>
+<body>
+    <div class="card">
+        <div class="card__header">
+            <!-- Display the user's name from the JWT -->
+            <h1 class="card__title">Hello, {{ user.name }}!</h1>
+        </div>
+        <div class="card__body">
+            <p>You are viewing a protected resource from the Template service.</p>
+            <p>Your username is: <strong>{{ user.preferred_username }}</strong></p>
+            <p>Your email is: <strong>{{ user.email }}</strong></p>
+            <button class="btn btn--primary">
+                <span class="btn__label">Primary Action</span>
+            </button>
+        </div>
+    </div>
+</body>
+</html>
