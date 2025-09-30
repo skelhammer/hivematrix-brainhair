@@ -15,6 +15,7 @@ def init_jwks_client():
 def token_required(f):
     """
     A decorator to protect routes, ensuring a valid JWT is present.
+    This now accepts both user tokens and service tokens.
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -37,8 +38,19 @@ def token_required(f):
                 issuer="hivematrix.core",
                 options={"verify_exp": True}
             )
-            # Store the user data in Flask's global request context object
-            g.user = data
+
+            # Determine if this is a user token or service token
+            if data.get('type') == 'service':
+                # Service-to-service call
+                g.user = None
+                g.service = data.get('calling_service')
+                g.is_service_call = True
+            else:
+                # User call
+                g.user = data
+                g.service = None
+                g.is_service_call = False
+
         except jwt.PyJWTError as e:
             abort(401, description=f"Invalid Token: {e}")
 

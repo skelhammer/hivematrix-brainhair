@@ -1,0 +1,11 @@
+{
+    "template": {
+        "url": "http://localhost:5001"
+    },
+    "codex": {
+        "url": "http://localhost:5002"
+    },
+    "resolve": {
+        "url": "http://localhost:5003"
+    }
+}
