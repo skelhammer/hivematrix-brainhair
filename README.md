@@ -15,4 +15,12 @@ It contains no CSS and is intended to be run behind the `hivematrix-nexus` proxy
 4.  Run the app: `flask run --port=5001`
 
 
+## Setup .flaskenv
+```
+FLASK_APP=run.py
+FLASK_ENV=development
+CORE_SERVICE_URL='http://localhost:5000'
+SERVICE_NAME='template'
+```
+
 The service will be available at `http://localhost:5001`.
