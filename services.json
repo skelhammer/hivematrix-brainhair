@@ -1,11 +1,26 @@
 {
-    "template": {
-        "url": "http://localhost:5001"
+    "keycloak": {
+        "url": "http://localhost:8080"
+    },
+    "helm": {
+        "url": "http://localhost:5004"
+    },
+    "core": {
+        "url": "http://localhost:5000"
+    },
+    "nexus": {
+        "url": "http://localhost:8000"
     },
     "codex": {
-        "url": "http://localhost:5002"
+        "url": "http://localhost:5010"
     },
-    "resolve": {
-        "url": "http://localhost:5003"
+    "ledger": {
+        "url": "http://localhost:5030"
+    },
+    "knowledgetree": {
+        "url": "http://localhost:5020"
+    },
+    "template": {
+        "url": "http://localhost:5040"
     }
 }
