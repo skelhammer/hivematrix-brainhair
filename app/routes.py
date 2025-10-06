@@ -2,6 +2,7 @@ from flask import render_template, g, jsonify
 from app import app
 from .auth import token_required
 from .service_client import call_service
+from .helm_logger import get_helm_logger
 
 @app.route('/')
 @token_required
@@ -10,14 +11,18 @@ def index():
     Renders the main page of the template app.
     This route is protected and requires a valid JWT.
     """
+    logger = get_helm_logger()
+
     # Check if this is a service call or user call
     if g.is_service_call:
+        logger.warning(f"Service {g.service} attempted to access user-only endpoint /")
         return jsonify({
             'error': 'This endpoint is for users only',
             'service': g.service
         }), 403
 
     user = g.user
+    logger.info(f"User {user.get('preferred_username')} accessed index page")
     return render_template('index.html', user=user)
 
 
@@ -27,7 +32,10 @@ def api_example():
     """
     Example API endpoint that can be called by other services.
     """
+    logger = get_helm_logger()
+
     if g.is_service_call:
+        logger.info(f"Service {g.service} called /api/example")
         return jsonify({
             'message': 'Hello from Template service!',
             'called_by': g.service,
@@ -37,6 +45,7 @@ def api_example():
             }
         })
     else:
+        logger.info(f"User {g.user.get('preferred_username')} called /api/example")
         return jsonify({
             'message': 'Hello from Template service!',
             'user': g.user.get('preferred_username'),
