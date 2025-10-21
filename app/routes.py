@@ -90,7 +90,14 @@ def knowledge_search():
             # Apply Presidio filtering
             filtered_data = apply_filter(data, filter_type)
 
-            logger.info(f"Knowledge search completed: query='{query}', results={len(data.get('results', []))}")
+            # Handle both dict and list responses
+            if isinstance(data, dict):
+                result_count = len(data.get('results', []))
+            elif isinstance(data, list):
+                result_count = len(data)
+            else:
+                result_count = 'unknown'
+            logger.info(f"Knowledge search completed: query='{query}', results={result_count}")
 
             return jsonify({
                 'query': query,
@@ -102,7 +109,7 @@ def knowledge_search():
             return jsonify({'error': 'KnowledgeTree search failed'}), response.status_code
 
     except Exception as e:
-        logger.error(f"Error calling KnowledgeTree: {e}", exc_info=True)
+        logger.error(f"Error calling KnowledgeTree: {e}")
         return jsonify({'error': f'Error calling KnowledgeTree: {str(e)}'}), 500
 
 
@@ -144,7 +151,7 @@ def knowledge_browse():
             return jsonify({'error': 'KnowledgeTree browse failed'}), response.status_code
 
     except Exception as e:
-        logger.error(f"Error calling KnowledgeTree: {e}", exc_info=True)
+        logger.error(f"Error calling KnowledgeTree: {e}")
         return jsonify({'error': f'Error calling KnowledgeTree: {str(e)}'}), 500
 
 
@@ -183,7 +190,7 @@ def knowledge_node(node_id: int):
             return jsonify({'error': 'Node not found'}), response.status_code
 
     except Exception as e:
-        logger.error(f"Error calling KnowledgeTree: {e}", exc_info=True)
+        logger.error(f"Error calling KnowledgeTree: {e}")
         return jsonify({'error': f'Error calling KnowledgeTree: {str(e)}'}), 500
 
 
@@ -223,7 +230,7 @@ def codex_companies():
             return jsonify({'error': 'Codex companies retrieval failed'}), response.status_code
 
     except Exception as e:
-        logger.error(f"Error calling Codex: {e}", exc_info=True)
+        logger.error(f"Error calling Codex: {e}")
         return jsonify({'error': f'Error calling Codex: {str(e)}'}), 500
 
 
@@ -262,7 +269,7 @@ def codex_company(company_id: int):
             return jsonify({'error': 'Company not found'}), response.status_code
 
     except Exception as e:
-        logger.error(f"Error calling Codex: {e}", exc_info=True)
+        logger.error(f"Error calling Codex: {e}")
         return jsonify({'error': f'Error calling Codex: {str(e)}'}), 500
 
 
@@ -315,7 +322,7 @@ def codex_tickets():
             return jsonify({'error': 'Codex tickets retrieval failed'}), response.status_code
 
     except Exception as e:
-        logger.error(f"Error calling Codex: {e}", exc_info=True)
+        logger.error(f"Error calling Codex: {e}")
         return jsonify({'error': f'Error calling Codex: {str(e)}'}), 500
 
 
@@ -358,7 +365,7 @@ def freshservice_tickets():
             return jsonify({'error': 'FreshService tickets retrieval failed'}), response.status_code
 
     except Exception as e:
-        logger.error(f"Error calling FreshService via Codex: {e}", exc_info=True)
+        logger.error(f"Error calling FreshService via Codex: {e}")
         return jsonify({'error': f'Error calling FreshService: {str(e)}'}), 500
 
 
@@ -398,7 +405,7 @@ def freshservice_ticket(ticket_id: int):
             return jsonify({'error': 'Ticket not found'}), response.status_code
 
     except Exception as e:
-        logger.error(f"Error calling FreshService via Codex: {e}", exc_info=True)
+        logger.error(f"Error calling FreshService via Codex: {e}")
         return jsonify({'error': f'Error calling FreshService: {str(e)}'}), 500
 
 
@@ -446,7 +453,7 @@ def datto_devices():
             return jsonify({'error': 'Datto devices retrieval failed'}), response.status_code
 
     except Exception as e:
-        logger.error(f"Error calling Datto via Codex: {e}", exc_info=True)
+        logger.error(f"Error calling Datto via Codex: {e}")
         return jsonify({'error': f'Error calling Datto: {str(e)}'}), 500
 
 
@@ -486,7 +493,7 @@ def datto_device(device_id: str):
             return jsonify({'error': 'Device not found'}), response.status_code
 
     except Exception as e:
-        logger.error(f"Error calling Datto via Codex: {e}", exc_info=True)
+        logger.error(f"Error calling Datto via Codex: {e}")
         return jsonify({'error': f'Error calling Datto: {str(e)}'}), 500
 
 

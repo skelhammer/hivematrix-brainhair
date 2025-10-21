@@ -25,9 +25,17 @@ def search_knowledge(query, filter_type="phi"):
 
     response = auth.get("/api/knowledge/search", params={"q": query, "filter": filter_type})
 
+    print(f"DEBUG: Status code: {response.status_code}")
+    print(f"DEBUG: Response text: {response.text[:500]}")
+
     if response.status_code == 200:
-        data = response.json()
-        return data
+        try:
+            data = response.json()
+            return data
+        except Exception as e:
+            print(f"Error parsing JSON: {e}")
+            print(f"Response text: {response.text}")
+            return {}
     else:
         print(f"Error: {response.status_code}")
         print(response.text)
