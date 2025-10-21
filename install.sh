@@ -6,13 +6,13 @@
 
 set -e  # Exit on error
 
-APP_NAME="template"
+APP_NAME="brainhair"
 APP_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PARENT_DIR="$(dirname "$APP_DIR")"
 HELM_DIR="$PARENT_DIR/hivematrix-helm"
 
 echo "=========================================="
-echo "  Installing HiveMatrix Template"
+echo "  Installing HiveMatrix Brain Hair"
 echo "=========================================="
 echo ""
 
@@ -79,7 +79,8 @@ if [ ! -f ".flaskenv" ]; then
     cat > .flaskenv <<EOF
 FLASK_APP=run.py
 FLASK_ENV=development
-SERVICE_NAME=template
+FLASK_RUN_PORT=5050
+SERVICE_NAME=brainhair
 
 # Core Service
 CORE_SERVICE_URL=http://localhost:5000
@@ -109,16 +110,16 @@ echo -e "${GREEN}✓ Module-specific setup complete${NC}"
 echo ""
 
 echo "=========================================="
-echo -e "${GREEN}  Template installed successfully!${NC}"
+echo -e "${GREEN}  Brain Hair installed successfully!${NC}"
 echo "=========================================="
 echo ""
 echo "Configuration:"
-echo "  Port: 5040"
+echo "  Port: 5050"
 echo "  Core Service: http://localhost:5000"
 echo "  Helm Service: http://localhost:5004"
 echo ""
 echo "Next steps:"
 echo "  1. Ensure Core and Helm are running"
-echo "  2. Start Template: python run.py"
+echo "  2. Start Brain Hair: python run.py"
 echo "  3. Or use Helm to start the service"
 echo ""

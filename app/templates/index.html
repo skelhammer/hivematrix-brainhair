@@ -2,21 +2,69 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>HiveMatrix Template</title>
+    <title>Brain Hair - AI API Gateway</title>
 </head>
 <body>
     <div class="card">
         <div class="card__header">
-            <!-- Display the user's name from the JWT -->
-            <h1 class="card__title">Hello, {{ user.name }}!</h1>
+            <h1 class="card__title">Brain Hair AI API Gateway</h1>
         </div>
         <div class="card__body">
-            <p>You are viewing a protected resource from the Template service.</p>
-            <p>Your username is: <strong>{{ user.preferred_username }}</strong></p>
-            <p>Your email is: <strong>{{ user.email }}</strong></p>
-            <button class="btn btn--primary">
-                <span class="btn__label">Primary Action</span>
-            </button>
+            <p><strong>Welcome, {{ user.name }}!</strong></p>
+            <p>Brain Hair provides AI-accessible APIs with automatic PHI/CJIS filtering.</p>
+
+            <div style="margin: 2rem 0; padding: 1rem; background: #f0f7ff; border-left: 4px solid #0066cc;">
+                <h2 style="margin-top: 0;">🚀 New: AI Tech Assistant</h2>
+                <p>Chat with Claude AI to help solve tickets, search knowledge, and manage devices.</p>
+                <a href="chat" class="btn btn--primary" style="display: inline-block; margin-top: 0.5rem;">
+                    <span class="btn__label">Open Chat Interface →</span>
+                </a>
+            </div>
+
+            <h2>Available Endpoints</h2>
+
+            <h3>KnowledgeTree Integration</h3>
+            <ul>
+                <li><code>GET /api/knowledge/search?q=query</code> - Search knowledge base</li>
+                <li><code>GET /api/knowledge/browse?path=path</code> - Browse knowledge tree</li>
+                <li><code>GET /api/knowledge/node/&lt;id&gt;</code> - Get node details</li>
+            </ul>
+
+            <h3>Codex Integration</h3>
+            <ul>
+                <li><code>GET /api/codex/companies</code> - List companies</li>
+                <li><code>GET /api/codex/company/&lt;id&gt;</code> - Get company details</li>
+                <li><code>GET /api/codex/tickets</code> - List tickets</li>
+            </ul>
+
+            <h3>FreshService Integration</h3>
+            <ul>
+                <li><code>GET /api/freshservice/tickets</code> - List FreshService tickets</li>
+                <li><code>GET /api/freshservice/ticket/&lt;id&gt;</code> - Get ticket details</li>
+            </ul>
+
+            <h3>Datto Integration</h3>
+            <ul>
+                <li><code>GET /api/datto/devices</code> - List Datto devices</li>
+                <li><code>GET /api/datto/device/&lt;id&gt;</code> - Get device details</li>
+            </ul>
+
+            <h3>Utility</h3>
+            <ul>
+                <li><code>GET /api/health</code> - Health check</li>
+                <li><code>GET /api/endpoints</code> - List all endpoints (JSON)</li>
+            </ul>
+
+            <h2>Data Filtering</h2>
+            <p>All endpoints support automatic PHI/CJIS filtering via Presidio:</p>
+            <ul>
+                <li>Add <code>?filter=phi</code> for PHI filtering (default)</li>
+                <li>Add <code>?filter=cjis</code> for CJIS filtering</li>
+            </ul>
+
+            <h2>Authentication</h2>
+            <p>All endpoints require Bearer token authentication.</p>
+            <p>Your permission level: <strong>{{ user.permission_level }}</strong></p>
         </div>
     </div>
 </body>
