@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Brain Hair - AI Tech Assistant</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -153,6 +155,54 @@
             padding: 1rem;
             border-radius: 12px;
             line-height: 1.6;
+            word-wrap: break-word;
+        }
+
+        .message-content p {
+            margin: 0.5rem 0;
+        }
+
+        .message-content p:first-child {
+            margin-top: 0;
+        }
+
+        .message-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .message-content strong {
+            color: #f9e2af;
+            font-weight: 700;
+        }
+
+        .message-content code {
+            background: #181825;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .message-content pre {
+            background: #181825;
+            padding: 0.75rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 0.5rem 0;
+        }
+
+        .message-content pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .message-content ul, .message-content ol {
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+        }
+
+        .message-content li {
+            margin: 0.25rem 0;
         }
 
         .message.user .message-content {
@@ -338,19 +388,6 @@
 
         <div class="chat-container">
             <div class="messages" id="messages">
-                <div class="message assistant">
-                    <div class="message-avatar">AI</div>
-                    <div class="message-content">
-                        Hello! I'm your AI tech assistant. I can help you with:
-                        <ul style="margin-top: 0.5rem; padding-left: 1.5rem;">
-                            <li>Looking up tickets and client information</li>
-                            <li>Searching the knowledge base</li>
-                            <li>Checking device status</li>
-                            <li>Running commands (with your approval)</li>
-                        </ul>
-                        What can I help you with today?
-                    </div>
-                </div>
             </div>
 
             <div class="typing-indicator" id="typing">
@@ -412,13 +449,21 @@
             }
         });
 
+        function renderMarkdown(text) {
+            // Parse markdown to HTML
+            const html = marked.parse(text);
+            // Sanitize HTML to prevent XSS
+            return DOMPurify.sanitize(html);
+        }
+
         function addMessage(role, content, streaming = false) {
             const messagesDiv = document.getElementById('messages');
 
             if (streaming && role === 'assistant' && currentMessageElement) {
                 // Update existing streaming message
                 const contentDiv = currentMessageElement.querySelector('.message-content');
-                contentDiv.textContent = content;
+                // Render markdown for assistant messages
+                contentDiv.innerHTML = renderMarkdown(content);
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
                 return currentMessageElement;
             }
@@ -433,7 +478,13 @@
 
             const contentDiv = document.createElement('div');
             contentDiv.className = 'message-content';
-            contentDiv.textContent = content;
+
+            // Render markdown for assistant, plain text for user
+            if (role === 'assistant') {
+                contentDiv.innerHTML = renderMarkdown(content);
+            } else {
+                contentDiv.textContent = content;
+            }
 
             messageDiv.appendChild(avatar);
             messageDiv.appendChild(contentDiv);
@@ -738,16 +789,26 @@
                 document.getElementById('current-client').textContent = 'None';
 
                 // Show welcome message
-                addMessage('assistant', `Hello! I'm your AI tech assistant. I can help you with:
-                        <ul style="margin-top: 0.5rem; padding-left: 1.5rem;">
-                            <li>Looking up tickets and client information</li>
-                            <li>Searching the knowledge base</li>
-                            <li>Checking device status</li>
-                            <li>Running commands (with your approval)</li>
-                        </ul>
-                        What can I help you with today?`);
+                showWelcomeMessage();
             }
         }
+
+        function showWelcomeMessage() {
+            const welcomeText = `Hello! I'm your AI tech assistant. I can help you with:
+
+- Looking up tickets and client information
+- Searching the knowledge base
+- Checking device status
+- Running commands (with your approval)
+
+What can I help you with today?`;
+            addMessage('assistant', welcomeText);
+        }
+
+        // Initialize welcome message on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            showWelcomeMessage();
+        });
     </script>
 </body>
 </html>
