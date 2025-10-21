@@ -5,6 +5,27 @@ import jwt
 # Cache for Core's public key
 jwks_client = None
 
+def allow_localhost(f):
+    """
+    A decorator that allows requests from localhost without auth.
+    Used for internal tools like ai_tools scripts running from Claude Code.
+    For external requests, still requires token.
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Check if request is from localhost
+        if request.remote_addr in ['127.0.0.1', 'localhost', '::1']:
+            # Local request - allow without auth
+            g.user = None
+            g.service = 'localhost'
+            g.is_service_call = True
+            return f(*args, **kwargs)
+
+        # External request - require token
+        return token_required(f)(*args, **kwargs)
+
+    return decorated_function
+
 def init_jwks_client():
     """Initializes the JWKS client from the URL in config."""
     global jwks_client

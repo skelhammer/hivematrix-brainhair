@@ -8,7 +8,7 @@ PHI/CJIS filtering via Presidio.
 
 from flask import render_template, g, jsonify, request
 from app import app
-from .auth import token_required
+from .auth import token_required, allow_localhost
 from .service_client import call_service
 from .helm_logger import get_helm_logger
 from .presidio_filter import get_presidio_filter
@@ -63,7 +63,7 @@ def index():
 # ==================== KnowledgeTree Integration ====================
 
 @app.route('/api/knowledge/search', methods=['GET'])
-@token_required
+@allow_localhost
 def knowledge_search():
     """
     Search KnowledgeTree and return filtered results.
@@ -107,7 +107,7 @@ def knowledge_search():
 
 
 @app.route('/api/knowledge/browse', methods=['GET'])
-@token_required
+@allow_localhost
 def knowledge_browse():
     """
     Browse KnowledgeTree nodes and return filtered results.
@@ -190,7 +190,7 @@ def knowledge_node(node_id: int):
 # ==================== Codex Integration ====================
 
 @app.route('/api/codex/companies', methods=['GET'])
-@token_required
+@allow_localhost
 def codex_companies():
     """
     Get list of companies from Codex with filtering.
@@ -228,7 +228,7 @@ def codex_companies():
 
 
 @app.route('/api/codex/company/<int:company_id>', methods=['GET'])
-@token_required
+@allow_localhost
 def codex_company(company_id: int):
     """
     Get details of a specific company from Codex with filtering.
@@ -267,7 +267,7 @@ def codex_company(company_id: int):
 
 
 @app.route('/api/codex/tickets', methods=['GET'])
-@token_required
+@allow_localhost
 def codex_tickets():
     """
     Get tickets from Codex with filtering.
@@ -322,7 +322,7 @@ def codex_tickets():
 # ==================== FreshService Integration ====================
 
 @app.route('/api/freshservice/tickets', methods=['GET'])
-@token_required
+@allow_localhost
 def freshservice_tickets():
     """
     Get tickets from FreshService (via Codex sync) with filtering.
@@ -363,7 +363,7 @@ def freshservice_tickets():
 
 
 @app.route('/api/freshservice/ticket/<int:ticket_id>', methods=['GET'])
-@token_required
+@allow_localhost
 def freshservice_ticket(ticket_id: int):
     """
     Get a specific ticket from FreshService with filtering.
@@ -405,7 +405,7 @@ def freshservice_ticket(ticket_id: int):
 # ==================== Datto Integration ====================
 
 @app.route('/api/datto/devices', methods=['GET'])
-@token_required
+@allow_localhost
 def datto_devices():
     """
     Get devices from Datto (via Codex sync) with filtering.
@@ -451,7 +451,7 @@ def datto_devices():
 
 
 @app.route('/api/datto/device/<device_id>', methods=['GET'])
-@token_required
+@allow_localhost
 def datto_device(device_id: str):
     """
     Get a specific device from Datto with filtering.
