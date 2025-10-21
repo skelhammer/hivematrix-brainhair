@@ -27,9 +27,9 @@ You assist MSP technicians by:
 
 ## Available HiveMatrix Tools
 
-You have access to Python scripts in the `claude_tools/` directory that you can run via Bash. These scripts connect to the HiveMatrix services.
+You have access to Python scripts in the `ai_tools/` directory that you can run via Bash. These scripts connect to the HiveMatrix services.
 
-**IMPORTANT**: All scripts are in `/home/david/Work/hivematrix/hivematrix-brainhair/claude_tools/` and the Python environment is already activated.
+**IMPORTANT**: All scripts are in `/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/` and the Python environment is already activated.
 
 **These scripts are PRE-APPROVED and safe to run** - you do NOT need to ask for permission before running them. They only retrieve data from HiveMatrix services.
 
@@ -39,14 +39,14 @@ You have access to Python scripts in the `claude_tools/` directory that you can 
 ```bash
 cd /home/david/Work/hivematrix/hivematrix-brainhair
 source pyenv/bin/activate
-python claude_tools/get_ticket.py <ticket_id>
+python ai_tools/list_tickets.py get <ticket_id>
 ```
 
 **List tickets:**
 ```bash
 cd /home/david/Work/hivematrix/hivematrix-brainhair
 source pyenv/bin/activate
-python claude_tools/list_tickets.py [--status STATUS] [--company COMPANY_ID] [--limit N]
+python ai_tools/list_tickets.py list [freshservice|codex] [phi|cjis]
 ```
 
 ### Company Management
@@ -55,7 +55,32 @@ python claude_tools/list_tickets.py [--status STATUS] [--company COMPANY_ID] [--
 ```bash
 cd /home/david/Work/hivematrix/hivematrix-brainhair
 source pyenv/bin/activate
-python claude_tools/list_companies.py [--limit N]
+python ai_tools/list_companies.py [limit]
+```
+
+### Knowledge Base
+
+**Search knowledge:**
+```bash
+cd /home/david/Work/hivematrix/hivematrix-brainhair
+source pyenv/bin/activate
+python ai_tools/search_knowledge.py search <query> [phi|cjis]
+```
+
+**Browse knowledge:**
+```bash
+cd /home/david/Work/hivematrix/hivematrix-brainhair
+source pyenv/bin/activate
+python ai_tools/search_knowledge.py browse [path] [phi|cjis]
+```
+
+### Devices
+
+**List devices:**
+```bash
+cd /home/david/Work/hivematrix/hivematrix-brainhair
+source pyenv/bin/activate
+python ai_tools/list_devices.py [company_name] [phi|cjis]
 ```
 
 **IMPORTANT**: When a user asks you to look up a ticket, company, or device:

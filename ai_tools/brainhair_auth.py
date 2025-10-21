@@ -96,14 +96,14 @@ _auth = None
 
 
 def get_auth(username: str = "claude", password: str = "claude123",
-             base_url: str = "https://localhost:443") -> BrainHairAuth:
+             base_url: str = None) -> BrainHairAuth:
     """
     Get or create authenticated Brain Hair client.
 
     Args:
         username: Username (default: claude)
         password: Password (default: claude123)
-        base_url: Base URL (default: http://localhost:8000)
+        base_url: Base URL (default: auto-detect based on environment)
 
     Returns:
         Authenticated BrainHairAuth instance
@@ -111,9 +111,22 @@ def get_auth(username: str = "claude", password: str = "claude123",
     global _auth
 
     if _auth is None:
-        _auth = BrainHairAuth(base_url)
-        if not _auth.login(username, password):
-            raise Exception("Authentication failed")
+        # Check if we're running from Claude Code (internal) or external
+        # If HIVEMATRIX_USER is set, we're running from Claude Code
+        if os.environ.get('HIVEMATRIX_USER'):
+            # Running from Claude Code - connect directly to local Brain Hair without auth
+            # Brain Hair trusts local connections from Claude
+            base_url = "http://localhost:5050"
+            _auth = BrainHairAuth(base_url)
+            _auth.brainhair_url = base_url  # Use Brain Hair directly, not through gateway
+            # No login needed for local connections
+        else:
+            # Running externally - use Nexus gateway with auth
+            if base_url is None:
+                base_url = "https://localhost:443"
+            _auth = BrainHairAuth(base_url)
+            if not _auth.login(username, password):
+                raise Exception("Authentication failed")
 
     return _auth
 
