@@ -1,14 +1,15 @@
 """
 Chat routes for Brain Hair AI Assistant
 
-Handles chat interface, Claude API integration, and command approval workflow.
+Handles chat interface, Claude Code integration, and command approval workflow.
 """
 
-from flask import render_template, request, jsonify, g
+from flask import render_template, request, jsonify, g, Response, stream_with_context
 from app import app
 from .auth import token_required
 from .service_client import call_service
 from .helm_logger import get_helm_logger
+from .claude_session_manager import get_session_manager
 import json
 import uuid
 from typing import Dict, List, Any, Optional
@@ -17,8 +18,8 @@ import os
 # Store pending commands (in production, use Redis or database)
 pending_commands = {}
 
-# Store chat sessions (in production, use database)
-chat_sessions = {}
+# Get the global session manager
+session_manager = get_session_manager()
 
 
 @app.route('/chat')
@@ -43,35 +44,29 @@ def chat_interface():
 @token_required
 def chat_message():
     """
-    Handle chat messages and route to Claude API.
+    Handle chat messages and stream response from Claude Code.
 
     Request body:
     {
         "message": "user message",
+        "session_id": "session_id or null (creates new session)",
         "ticket": "ticket number or null",
-        "client": "client name or null",
-        "history": [{"role": "user/assistant", "content": "..."}]
+        "client": "client name or null"
     }
 
-    Response:
-    {
-        "response": "assistant response",
-        "command_request": {  // Optional, if command approval needed
-            "id": "command_id",
-            "device": "device name",
-            "command": "PowerShell command",
-            "reason": "why this command"
-        }
-    }
+    Response: Server-Sent Events stream
+    data: {"type": "chunk", "content": "response text"}
+    data: {"type": "command_approval", "data": {...}}
+    data: {"type": "done"}
     """
     logger = get_helm_logger()
 
     try:
         data = request.get_json()
         message = data.get('message', '')
+        session_id = data.get('session_id')
         ticket = data.get('ticket')
         client = data.get('client')
-        history = data.get('history', [])
 
         if not message:
             return jsonify({'error': 'Message is required'}), 400
@@ -82,22 +77,64 @@ def chat_message():
         # Build context for Claude
         context = build_context(ticket, client, user)
 
-        # Get response from Claude (or simulated for now)
-        response = get_claude_response(message, history, context)
+        # Get or create Claude session
+        if session_id:
+            session = session_manager.get_session(session_id)
+            if not session:
+                # Session expired or invalid, create new one
+                session_id = session_manager.create_session(user, context)
+                session = session_manager.get_session(session_id)
+        else:
+            # Create new session
+            session_id = session_manager.create_session(user, context)
+            session = session_manager.get_session(session_id)
 
-        # Check if response includes a command request
-        command_request = None
-        if response.get('wants_to_run_command'):
-            command_request = create_command_request(
-                response.get('command'),
-                response.get('device'),
-                response.get('reason')
-            )
+        if not session:
+            return jsonify({'error': 'Failed to create session'}), 500
 
-        return jsonify({
-            'response': response.get('message', 'I apologize, I encountered an error.'),
-            'command_request': command_request
-        })
+        # Stream the response
+        def generate():
+            """Generator for SSE streaming."""
+            # Send session ID first
+            yield f'data: {json.dumps({"type": "session_id", "session_id": session_id})}\n\n'
+
+            try:
+                # Stream chunks from session
+                for chunk in session.send_message_stream(message):
+                    # Check if this is a special message (command approval, etc.)
+                    try:
+                        chunk_data = json.loads(chunk)
+                        if chunk_data.get('type') == 'command_approval_request':
+                            # Handle command approval
+                            cmd_data = chunk_data['data']
+                            cmd_request = create_command_request(
+                                cmd_data.get('command'),
+                                cmd_data.get('device_id'),
+                                cmd_data.get('reason')
+                            )
+                            yield f'data: {json.dumps({"type": "command_approval", "data": cmd_request})}\n\n'
+                            continue
+                    except json.JSONDecodeError:
+                        pass
+
+                    # Normal text chunk
+                    yield f'data: {json.dumps({"type": "chunk", "content": chunk})}\n\n'
+
+                # Send completion marker
+                yield f'data: {json.dumps({"type": "done"})}\n\n'
+
+            except Exception as e:
+                logger.error(f"Error streaming response: {e}", exc_info=True)
+                yield f'data: {json.dumps({"type": "error", "error": str(e)})}\n\n'
+
+        return Response(
+            stream_with_context(generate()),
+            mimetype='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'X-Accel-Buffering': 'no'
+            }
+        )
 
     except Exception as e:
         logger.error(f"Chat error: {e}", exc_info=True)
@@ -150,109 +187,13 @@ def build_context(ticket: Optional[str], client: Optional[str], user: str) -> Di
     return context
 
 
-def get_claude_response(message: str, history: List[Dict], context: Dict) -> Dict:
-    """
-    Get response from Claude API.
-
-    For now, this is a placeholder that returns simulated responses.
-    In production, this would call the actual Claude API.
-
-    Args:
-        message: User's message
-        history: Conversation history
-        context: Context information
-
-    Returns:
-        Response dictionary
-    """
-    # TODO: Implement actual Claude API integration
-    # For now, return a simulated intelligent response
-
-    message_lower = message.lower()
-
-    # Simulate intelligent responses based on keywords
-    if 'ticket' in message_lower and 'list' in message_lower:
-        return {
-            'message': '''I'll help you list recent tickets. Let me query the system.
-
-Based on the current data, here are the most recent tickets:
-- #12345: Password reset for John S. (Open)
-- #12344: VPN connection issue for Mary J. (In Progress)
-- #12343: Printer offline for Robert W. (Resolved)
-
-Would you like me to get more details on any of these tickets?'''
-        }
-
-    elif 'knowledge' in message_lower or 'search' in message_lower:
-        return {
-            'message': '''I can search the knowledge base for you. What specific topic or issue are you looking for?
-
-Some common searches:
-- Password reset procedures
-- VPN setup guides
-- Printer troubleshooting
-- Software installation guides
-
-What would you like to search for?'''
-        }
-
-    elif 'device' in message_lower or 'computer' in message_lower:
-        return {
-            'message': f'''I can help with device information.{' For client: ' + context.get('client') if context.get('client') else ''}
-
-I can:
-- List all devices for a client
-- Check device status and health
-- View installed software
-- Run diagnostic commands (with your approval)
-
-What would you like to know?'''
-        }
-
-    elif 'run' in message_lower or 'command' in message_lower or 'powershell' in message_lower:
-        # Simulate a command request
-        return {
-            'message': 'I can help run commands on devices. What would you like me to do?',
-            'wants_to_run_command': True,
-            'device': 'WORKSTATION-001',
-            'command': 'Get-ComputerInfo | Select-Object CsName, WindowsVersion, OsArchitecture',
-            'reason': 'Check system information for troubleshooting'
-        }
-
-    elif context.get('ticket'):
-        return {
-            'message': f'''I'm currently working on ticket #{context.get('ticket')}.
-
-What would you like me to help with for this ticket?
-- Search knowledge base for solutions
-- Check client's devices
-- Review ticket history
-- Run diagnostic commands'''
-        }
-
-    else:
-        return {
-            'message': f'''I'm here to help! I can assist with:
-
-📋 **Tickets**: List, search, and manage tickets
-📚 **Knowledge Base**: Search documentation and procedures
-💻 **Devices**: Check status, run commands (with approval)
-🏢 **Clients**: View client information and devices
-
-{f"Currently working on: Ticket #{context.get('ticket')}" if context.get('ticket') else ""}
-{f"Currently viewing: {context.get('client')}" if context.get('client') else ""}
-
-What can I help you with?'''
-        }
-
-
-def create_command_request(command: str, device: str, reason: str) -> Dict:
+def create_command_request(command: str, device_id: str, reason: str) -> Dict:
     """
     Create a pending command that needs approval.
 
     Args:
         command: PowerShell command to run
-        device: Target device
+        device_id: Target device ID
         reason: Reason for running command
 
     Returns:
@@ -263,7 +204,7 @@ def create_command_request(command: str, device: str, reason: str) -> Dict:
     pending_commands[command_id] = {
         'id': command_id,
         'command': command,
-        'device': device,
+        'device_id': device_id,
         'reason': reason,
         'status': 'pending',
         'created_at': None  # TODO: Add timestamp
@@ -271,7 +212,7 @@ def create_command_request(command: str, device: str, reason: str) -> Dict:
 
     return {
         'id': command_id,
-        'device': device,
+        'device_id': device_id,
         'command': command,
         'reason': reason
     }
@@ -311,11 +252,12 @@ def approve_command():
 
         # Execute the command
         # TODO: Implement actual remote execution via Datto RMM
-        output = execute_remote_command(command['device'], command['command'])
+        output = execute_remote_command(command['device_id'], command['command'])
 
         # Update command status
         command['status'] = 'executed'
         command['executed_by'] = user
+        command['output'] = output
 
         return jsonify({
             'status': 'success',
@@ -367,7 +309,7 @@ def deny_command():
         return jsonify({'error': str(e)}), 500
 
 
-def execute_remote_command(device: str, command: str) -> str:
+def execute_remote_command(device_id: str, command: str) -> str:
     """
     Execute a PowerShell command on a remote device.
 
@@ -375,7 +317,7 @@ def execute_remote_command(device: str, command: str) -> str:
     Datto RMM or another remote management tool.
 
     Args:
-        device: Target device name
+        device_id: Target device ID
         command: PowerShell command to run
 
     Returns:
@@ -385,12 +327,68 @@ def execute_remote_command(device: str, command: str) -> str:
     # For now, return simulated output
 
     logger = get_helm_logger()
-    logger.info(f"Simulated command execution on {device}: {command}")
+    logger.info(f"Simulated command execution on device {device_id}: {command}")
 
     return f"""Simulated output for: {command}
 
-CsName          : {device}
+Device ID       : {device_id}
+CsName          : WORKSTATION-001
 WindowsVersion  : 10.0.19045
 OsArchitecture  : 64-bit
 
 (This is simulated output. Actual Datto RMM integration needed.)"""
+
+
+@app.route('/api/chat/session/<session_id>', methods=['DELETE'])
+@token_required
+def destroy_session(session_id: str):
+    """
+    Destroy a Claude Code session.
+
+    Used when the user closes the chat or logs out.
+    """
+    logger = get_helm_logger()
+
+    try:
+        session_manager.destroy_session(session_id)
+        logger.info(f"Destroyed session {session_id}")
+        return jsonify({'status': 'destroyed'})
+    except Exception as e:
+        logger.error(f"Error destroying session: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/command/<command_id>/status', methods=['GET'])
+@token_required
+def get_command_status(command_id: str):
+    """
+    Get the status of a command execution.
+
+    This is called from the datto_tools.get_command_status() function.
+    """
+    logger = get_helm_logger()
+
+    try:
+        command = pending_commands.get(command_id)
+
+        if not command:
+            return jsonify({
+                'error': 'Command not found',
+                'command_id': command_id,
+                'status': 'unknown'
+            }), 404
+
+        return jsonify({
+            'command_id': command_id,
+            'status': command.get('status'),
+            'device_id': command.get('device_id'),
+            'command': command.get('command'),
+            'reason': command.get('reason'),
+            'executed_by': command.get('executed_by'),
+            'denied_by': command.get('denied_by'),
+            'output': command.get('output')
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting command status: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500

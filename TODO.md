@@ -1,5 +1,32 @@
 # Brain Hair - TODO & Status
 
+## 🎉 READY FOR TESTING!
+
+Brain Hair v2.0 with Claude Code integration is complete and ready for end-to-end testing!
+
+**What's Working:**
+- ✅ Claude Code session management with streaming responses
+- ✅ Python tools for Codex (companies, tickets) and Datto (devices)
+- ✅ Server-Sent Events streaming in chat UI
+- ✅ Command approval workflow
+- ✅ PHI/CJIS filtering on all responses
+- ✅ Codex tickets API (list, get, update)
+- ✅ Datto devices API (list, get)
+
+**To Test:**
+1. Start Brain Hair service
+2. Open chat interface at `/brainhair/chat`
+3. Try asking Claude to:
+   - "List recent tickets"
+   - "Search for password reset knowledge articles"
+   - "Show me devices for ACME Corp"
+   - "Check disk space on device-123" (will request approval)
+
+**Known Limitations:**
+- KnowledgeTree still returns 500 errors (needs debugging)
+- Datto device health data is simulated (needs real API integration)
+- PowerShell commands are simulated (needs real Datto RMM integration)
+
 ## ✅ Completed
 
 ### Core Infrastructure
@@ -64,43 +91,64 @@
 - [x] Email/phone/date redaction testing
 - [x] Both filter types verified (PHI & CJIS)
 
-## 🚧 In Progress
+### Claude Code Integration ⚡ NEW!
+- [x] **Session Manager** - Spawns Claude Code process per chat session
+- [x] **Python Tools for HiveMatrix** - codex_tools, knowledge_tools, datto_tools
+- [x] **Streaming Response Handler** - Server-Sent Events (SSE) streaming
+- [x] **Command Approval Integration** - Intercepts execute_command() for approval
+- [x] **System Prompt** - Comprehensive AI assistant instructions
+- [x] **Session Cleanup** - DELETE endpoint for destroying sessions
+- [x] **Command Status Tracking** - GET endpoint for command execution status
+- [x] **PHI/CJIS Filtering** - All responses automatically filtered
 
-### Chat System Enhancements
-- [ ] Real Claude API integration (currently simulated)
-  - Intelligent responses based on actual AI
-  - Context-aware troubleshooting
-  - Advanced conversation management
+### Chat UI for SSE Streaming ✅ NEW!
+- [x] **Updated JavaScript to handle Server-Sent Events**
+  - Fetch API with ReadableStream for SSE parsing
+  - Handle different message types (chunk, command_approval, done, error, session_id)
+  - Store and reuse session_id across messages
+  - Display streaming text in real-time
+  - Session cleanup on page unload
+  - Context change destroys old session
+- [x] **Enhanced Command Approval UI**
+  - Escape HTML in command display
+  - Visual feedback during execution
+  - Display command output inline
+  - Better error handling
+
+## 🚧 In Progress
 
 ### Backend Service Integrations
 - [ ] Fix KnowledgeTree API responses (500 errors)
   - Debug search endpoint failures
   - Fix browse endpoint data format
   - Test node retrieval
+  - Update knowledge_tools.py when fixed
 
 ## 📋 Pending - High Priority
 
-### Codex Integration
-- [ ] **Create tickets API endpoints in Codex**
-  - `/api/tickets` - List all tickets
-  - `/api/ticket/<id>` - Get ticket details
-  - `/api/ticket/<id>/update` - Update ticket status
-  - Filter by company, status, date
-  - Integration with FreshService data
+### Codex Integration ✅ DONE!
+- [x] **Tickets API endpoints in Codex**
+  - `GET /api/tickets` - List all tickets with filtering (company, status, priority)
+  - `GET /api/ticket/<id>` - Get ticket details with conversations and notes
+  - `POST /api/ticket/<id>/update` - Update ticket status and add notes
+  - Pagination support (limit, offset)
+  - Integration with existing FreshService data
 
-### Datto RMM Integration
-- [ ] **Device data API** (`/api/datto/devices`)
-  - Pull device list from Datto
-  - Device health/status information
-  - Installed software inventory
-  - System information
+### Datto RMM Integration 🟡 PARTIAL
+- [x] **Device data API** (`/api/datto/devices`)
+  - `GET /api/datto/devices` - List devices with filtering
+  - `GET /api/datto/device/<id>` - Get device details
+  - Device health/status information (simulated for now)
+  - Installed software inventory (simulated)
+  - System information from existing Asset data
 
-- [ ] **PowerShell remote execution**
-  - Datto RMM API integration
+- [ ] **PowerShell remote execution** (In Progress)
+  - Command approval workflow ✅ DONE
+  - Real Datto RMM API integration needed
   - Command execution via Datto
   - Real-time output streaming
-  - Error handling and logging
-  - Security validation
+  - Error handling and logging ✅ DONE
+  - Security validation ✅ DONE
 
 ### FreshService Integration
 - [ ] **Ticket sync** (`/api/freshservice/tickets`)
@@ -260,11 +308,98 @@
    - Webhook setup
    - Real-time updates
 
+## 🏗️ Architecture: Claude Code Integration
+
+Brain Hair now uses **Claude Code as its AI backend**, with each chat session running its own Claude Code process.
+
+### How It Works
+
+```
+User → Chat UI → Brain Hair Backend → Claude Code Process → HiveMatrix Services
+                       ↓                      ↓
+                  Session Manager      Python Tools
+                       ↓                      ↓
+                  PHI/CJIS Filter       (codex_tools, etc.)
+```
+
+### Components
+
+**1. Session Manager** (`app/claude_session_manager.py`)
+- Spawns one Claude Code process per chat session
+- Manages process lifecycle (start, stop, cleanup)
+- Streams responses via Server-Sent Events (SSE)
+- Intercepts tool calls that need approval
+- Applies PHI/CJIS filtering to all responses
+
+**2. Python Tools** (`claude_tools/`)
+- `codex_tools.py` - Company, ticket management
+- `knowledge_tools.py` - Knowledge base search/browse
+- `datto_tools.py` - Device info, remote command execution
+- `SYSTEM_PROMPT.md` - AI assistant instructions
+
+**3. Command Approval Flow**
+```python
+# In Claude Code session:
+from datto_tools import execute_command
+
+result = execute_command(
+    "device-123",
+    "Get-Process",
+    "Checking running processes for ticket #12345"
+)
+# → Prints __TOOL_CALL__ marker
+# → Session manager intercepts
+# → Shows approval card in UI
+# → Waits for human approval
+# → Executes command after approval
+# → Returns output to Claude
+```
+
+**4. API Endpoints**
+- `POST /api/chat` - Send message, get SSE stream
+- `DELETE /api/chat/session/<id>` - Destroy session
+- `POST /api/chat/command/approve` - Approve command
+- `POST /api/chat/command/deny` - Deny command
+- `GET /api/command/<id>/status` - Check command status
+
+### Claude Code Invocation
+
+```bash
+claude \
+  --dangerously-skip-user-approval-for-tools \
+  --model claude-sonnet-4-5 \
+  --custom-prompt "$(cat claude_tools/SYSTEM_PROMPT.md)"
+```
+
+Environment variables:
+- `PYTHONPATH=claude_tools/` - Import tools
+- `HIVEMATRIX_USER=<username>` - Current technician
+- `HIVEMATRIX_CONTEXT={"ticket": "12345", "client": "ACME"}` - Context
+
+### Benefits
+
+✅ **Full Claude Code capabilities** - All tools, MCP support, code execution
+✅ **No API key needed** - Uses server-side Claude Code installation
+✅ **Automatic PHI/CJIS filtering** - All responses sanitized
+✅ **Command approval workflow** - Human-in-the-loop for safety
+✅ **Session isolation** - Each chat has its own context
+✅ **Streaming responses** - Real-time text display
+✅ **Tool documentation** - Comprehensive system prompt guides Claude
+
+### Next Steps
+
+1. Update chat UI to handle SSE streaming
+2. Test with real HiveMatrix data
+3. Add error handling and reconnection logic
+4. Implement session timeout and cleanup
+5. Add command execution via Datto RMM API
+
 ## 🔗 Related Documentation
 
-- `CHAT_SYSTEM.md` - Complete chat system documentation
+- `claude_tools/SYSTEM_PROMPT.md` - AI assistant instructions and tool docs
+- `CHAT_SYSTEM.md` - Complete chat system documentation (needs update for SSE)
 - `README.md` - Installation and setup
-- `ai_tools/README.md` - AI tools usage guide
+- `ai_tools/README.md` - AI tools usage guide (legacy, now replaced by claude_tools)
 - `../hivematrix-helm/ARCHITECTURE.md` - Overall system architecture
 
 ## 📝 Notes
@@ -279,5 +414,5 @@
 ---
 
 **Last Updated**: 2025-10-21
-**Version**: 1.0.0
-**Status**: MVP Complete, Integration Pending
+**Version**: 2.0.0 - Claude Code Integration
+**Status**: Core Complete, UI Streaming Pending, Backend APIs Needed

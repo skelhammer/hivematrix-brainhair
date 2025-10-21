@@ -256,3 +256,21 @@ def get_presidio_filter() -> PresidioFilter:
     if _presidio_filter is None:
         _presidio_filter = PresidioFilter()
     return _presidio_filter
+
+
+def filter_data(data: Any, fields_to_filter: Optional[List[str]] = None) -> Any:
+    """
+    Convenience function to filter PHI data.
+
+    This is a simple wrapper around get_presidio_filter().filter_phi()
+    for easy importing and use.
+
+    Args:
+        data: Data to filter (dict, list, or str)
+        fields_to_filter: List of field names to filter (for dict/list of dicts)
+
+    Returns:
+        Filtered data with PHI anonymized
+    """
+    filter_instance = get_presidio_filter()
+    return filter_instance.filter_phi(data, fields_to_filter)

@@ -42,6 +42,16 @@ try:
 except Exception as e:
     helm_logger.warning(f"Could not download spaCy model: {e}. Presidio may use limited functionality.")
 
+# Apply ProxyFix to handle X-Forwarded headers from Nexus proxy
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(
+    app.wsgi_app,
+    x_for=1,      # Trust X-Forwarded-For
+    x_proto=1,    # Trust X-Forwarded-Proto
+    x_host=1,     # Trust X-Forwarded-Host
+    x_prefix=1    # Trust X-Forwarded-Prefix (sets SCRIPT_NAME for url_for)
+)
+
 from app import routes
 from app import chat_routes
 
