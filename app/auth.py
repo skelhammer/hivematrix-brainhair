@@ -21,8 +21,42 @@ def allow_localhost(f):
             g.is_service_call = True
             return f(*args, **kwargs)
 
-        # External request - require token
-        return token_required(f)(*args, **kwargs)
+        # External request - require token, use the token_required logic inline
+        if jwks_client is None:
+            init_jwks_client()
+
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            abort(401, description="Authorization header is missing or invalid.")
+
+        token = auth_header.split(' ')[1]
+
+        try:
+            signing_key = jwks_client.get_signing_key_from_jwt(token)
+            data = jwt.decode(
+                token,
+                signing_key.key,
+                algorithms=["RS256"],
+                issuer="hivematrix-core",
+                options={"verify_exp": True}
+            )
+
+            # Determine if this is a user token or service token
+            if data.get('type') == 'service':
+                # Service-to-service call
+                g.user = None
+                g.service = data.get('calling_service')
+                g.is_service_call = True
+            else:
+                # User call
+                g.user = data
+                g.service = None
+                g.is_service_call = False
+
+        except jwt.PyJWTError as e:
+            abort(401, description=f"Invalid Token: {e}")
+
+        return f(*args, **kwargs)
 
     return decorated_function
 
