@@ -74,7 +74,10 @@ class BrainHairAuth:
             Response object
         """
         url = f"{self.brainhair_url}{endpoint}"
-        return self.session.get(url, params=params)
+        headers = {}
+        if self.token:
+            headers['Authorization'] = f'Bearer {self.token}'
+        return self.session.get(url, params=params, headers=headers)
 
     def post(self, endpoint: str, data: Optional[Dict] = None) -> requests.Response:
         """
@@ -88,7 +91,10 @@ class BrainHairAuth:
             Response object
         """
         url = f"{self.brainhair_url}{endpoint}"
-        return self.session.post(url, json=data)
+        headers = {}
+        if self.token:
+            headers['Authorization'] = f'Bearer {self.token}'
+        return self.session.post(url, json=data, headers=headers)
 
 
 # Global instance for easy import
@@ -98,35 +104,42 @@ _auth = None
 def get_auth(username: str = "claude", password: str = "claude123",
              base_url: str = None) -> BrainHairAuth:
     """
-    Get or create authenticated Brain Hair client.
+    Get or create authenticated Brain Hair client using service tokens.
 
     Args:
-        username: Username (default: claude)
-        password: Password (default: claude123)
+        username: Username (default: claude) - not used with service tokens
+        password: Password (default: claude123) - not used with service tokens
         base_url: Base URL (default: auto-detect based on environment)
 
     Returns:
-        Authenticated BrainHairAuth instance
+        Authenticated BrainHairAuth instance with service token
     """
     global _auth
 
     if _auth is None:
-        # Check if we're running from Claude Code (internal) or external
-        # If HIVEMATRIX_USER is set, we're running from Claude Code
-        if os.environ.get('HIVEMATRIX_USER'):
-            # Running from Claude Code - connect directly to local Brain Hair without auth
-            # Brain Hair trusts local connections from Claude
-            base_url = "http://localhost:5050"
-            _auth = BrainHairAuth(base_url)
-            _auth.brainhair_url = base_url  # Use Brain Hair directly, not through gateway
-            # No login needed for local connections
-        else:
-            # Running externally - use Nexus gateway with auth
-            if base_url is None:
-                base_url = "https://localhost:443"
-            _auth = BrainHairAuth(base_url)
-            if not _auth.login(username, password):
-                raise Exception("Authentication failed")
+        # Always use service token authentication from Core
+        # This works both from Claude Code and external tools
+        base_url = "http://localhost:5050"
+        _auth = BrainHairAuth(base_url)
+        _auth.brainhair_url = base_url
+
+        # Get service token from Core
+        core_url = os.environ.get('CORE_SERVICE_URL', 'http://localhost:5000')
+        try:
+            response = requests.post(
+                f"{core_url}/service-token",
+                json={
+                    "calling_service": "brainhair-tools",
+                    "target_service": "brainhair"
+                },
+                timeout=5
+            )
+            if response.status_code == 200:
+                _auth.token = response.json()['token']
+            else:
+                raise Exception(f"Failed to get service token: {response.status_code} {response.text}")
+        except Exception as e:
+            raise Exception(f"Failed to get service token from Core: {e}")
 
     return _auth
 

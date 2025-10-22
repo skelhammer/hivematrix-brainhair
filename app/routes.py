@@ -63,7 +63,7 @@ def index():
 # ==================== KnowledgeTree Integration ====================
 
 @app.route('/api/knowledge/search', methods=['GET'])
-@allow_localhost
+@token_required
 def knowledge_search():
     """
     Search KnowledgeTree and return filtered results.
@@ -114,7 +114,7 @@ def knowledge_search():
 
 
 @app.route('/api/knowledge/browse', methods=['GET'])
-@allow_localhost
+@token_required
 def knowledge_browse():
     """
     Browse KnowledgeTree nodes and return filtered results.
@@ -129,8 +129,8 @@ def knowledge_browse():
     filter_type = request.args.get('filter', 'phi')
 
     try:
-        # Call KnowledgeTree service
-        endpoint = f'/browse/{path}' if path else '/browse/'
+        # Call KnowledgeTree service API endpoint
+        endpoint = f'/api/browse?path=/{path}' if path else '/api/browse?path=/'
         response = call_service('knowledgetree', endpoint)
 
         if response.status_code == 200:
@@ -197,7 +197,7 @@ def knowledge_node(node_id: int):
 # ==================== Codex Integration ====================
 
 @app.route('/api/codex/companies', methods=['GET'])
-@allow_localhost
+@token_required
 def codex_companies():
     """
     Get list of companies from Codex with filtering.
@@ -235,7 +235,7 @@ def codex_companies():
 
 
 @app.route('/api/codex/company/<int:company_id>', methods=['GET'])
-@allow_localhost
+@token_required
 def codex_company(company_id: int):
     """
     Get details of a specific company from Codex with filtering.
@@ -274,7 +274,7 @@ def codex_company(company_id: int):
 
 
 @app.route('/api/codex/tickets', methods=['GET'])
-@allow_localhost
+@token_required
 def codex_tickets():
     """
     Get tickets from Codex with filtering.
@@ -329,7 +329,7 @@ def codex_tickets():
 # ==================== FreshService Integration ====================
 
 @app.route('/api/freshservice/tickets', methods=['GET'])
-@allow_localhost
+@token_required
 def freshservice_tickets():
     """
     Get tickets from FreshService (via Codex sync) with filtering.
@@ -368,9 +368,48 @@ def freshservice_tickets():
         logger.error(f"Error calling FreshService via Codex: {e}")
         return jsonify({'error': f'Error calling FreshService: {str(e)}'}), 500
 
+@app.route('/api/codex/ticket/<int:ticket_id>', methods=['GET'])
+@token_required
+def codex_ticket(ticket_id: int):
+    """
+    Get a specific ticket from Codex with filtering.
+
+    Query params:
+        filter: Filter type ("phi", "cjis", or none for PHI)
+    """
+    logger = get_helm_logger()
+
+    filter_type = request.args.get('filter', 'phi')
+
+    try:
+        # Call Codex service
+        response = call_service('codex', f'/api/ticket/{ticket_id}')
+
+        if response.status_code == 200:
+            data = response.json()
+
+            # Apply Presidio filtering
+            filtered_data = apply_filter(data, filter_type)
+
+            logger.info(f"Codex ticket retrieved: ticket_id={ticket_id}")
+
+            return jsonify({
+                'source': 'codex',
+                'ticket_id': ticket_id,
+                'filter_applied': filter_type,
+                'data': filtered_data
+            })
+        else:
+            logger.error(f"Codex ticket retrieval failed: {response.status_code}")
+            return jsonify({'error': 'Ticket not found'}), response.status_code
+
+    except Exception as e:
+        logger.error(f"Error calling Codex: {e}")
+        return jsonify({'error': f'Error calling Codex: {str(e)}'}), 500
+
 
 @app.route('/api/freshservice/ticket/<int:ticket_id>', methods=['GET'])
-@allow_localhost
+@token_required
 def freshservice_ticket(ticket_id: int):
     """
     Get a specific ticket from FreshService with filtering.
@@ -412,7 +451,7 @@ def freshservice_ticket(ticket_id: int):
 # ==================== Datto Integration ====================
 
 @app.route('/api/datto/devices', methods=['GET'])
-@allow_localhost
+@token_required
 def datto_devices():
     """
     Get devices from Datto (via Codex sync) with filtering.
@@ -458,7 +497,7 @@ def datto_devices():
 
 
 @app.route('/api/datto/device/<device_id>', methods=['GET'])
-@allow_localhost
+@token_required
 def datto_device(device_id: str):
     """
     Get a specific device from Datto with filtering.

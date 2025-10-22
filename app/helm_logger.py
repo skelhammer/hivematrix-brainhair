@@ -166,7 +166,9 @@ class HelmLogger:
         # Add request context if available
         if has_request_context():
             log_entry["trace_id"] = getattr(g, 'trace_id', None)
-            log_entry["user_id"] = getattr(g, 'user', {}).get('sub')
+            user = getattr(g, 'user', None)
+            if user and isinstance(user, dict):
+                log_entry["user_id"] = user.get('sub')
             log_entry["context"]["path"] = request.path
             log_entry["context"]["method"] = request.method
 
@@ -184,8 +186,12 @@ class HelmLogger:
         """Log a WARNING message"""
         self.log("WARNING", message, context)
 
-    def error(self, message: str, context: Dict[str, Any] = None):
+    def error(self, message: str, context: Dict[str, Any] = None, exc_info: bool = False):
         """Log an ERROR message"""
+        import traceback
+        if exc_info:
+            # Append traceback to message if exc_info is True
+            message = f"{message}\n{traceback.format_exc()}"
         self.log("ERROR", message, context)
 
     def critical(self, message: str, context: Dict[str, Any] = None):

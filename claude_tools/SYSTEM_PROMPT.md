@@ -35,18 +35,27 @@ You have access to Python scripts in the `ai_tools/` directory that you can run 
 
 ### Ticket Management
 
+**IMPORTANT**: Always use `codex` as the source for tickets unless specifically asked for FreshService. Codex is the default ticket system.
+
 **Get a specific ticket:**
 ```bash
 cd /home/david/Work/hivematrix/hivematrix-brainhair
 source pyenv/bin/activate
-python ai_tools/list_tickets.py get <ticket_id>
+python ai_tools/list_tickets.py get <ticket_id> codex phi
+```
+
+Example:
+```bash
+cd /home/david/Work/hivematrix/hivematrix-brainhair
+source pyenv/bin/activate
+python ai_tools/list_tickets.py get 17834 codex phi
 ```
 
 **List tickets:**
 ```bash
 cd /home/david/Work/hivematrix/hivematrix-brainhair
 source pyenv/bin/activate
-python ai_tools/list_tickets.py list [freshservice|codex] [phi|cjis]
+python ai_tools/list_tickets.py list codex phi
 ```
 
 ### Company Management

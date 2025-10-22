@@ -98,8 +98,9 @@ class ClaudeSession:
 
             # Invoke Claude Code with permissions bypassed
             # This is safe since we're in a controlled server environment and only accessing HiveMatrix data
+            claude_bin = '/home/david/.npm/_npx/becf7b9e49303068/node_modules/.bin/claude'
             cmd = [
-                'claude',
+                claude_bin,
                 '--model', 'claude-sonnet-4-5',
                 '--dangerously-skip-permissions',  # Bypass all permission checks
                 '--append-system-prompt', full_prompt,
