@@ -52,6 +52,13 @@ CREATE USER brainhair_user WITH PASSWORD 'your_secure_password';
 -- Grant permissions
 GRANT ALL PRIVILEGES ON DATABASE brainhair_db TO brainhair_user;
 
+-- Connect to the database
+\c brainhair_db
+
+-- Grant schema permissions (required for PostgreSQL 15+)
+GRANT ALL ON SCHEMA public TO brainhair_user;
+GRANT USAGE, CREATE ON SCHEMA public TO brainhair_user;
+
 -- Exit psql
 \q
 ```
