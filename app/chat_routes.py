@@ -412,3 +412,164 @@ def get_command_status(command_id: str):
     except Exception as e:
         logger.error(f"Error getting command status: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
+
+
+# ==================== Chat History Endpoints ====================
+
+@app.route('/api/chat/history', methods=['GET'])
+@token_required
+def list_chat_sessions():
+    """
+    List chat sessions for the current user.
+
+    Query parameters:
+        - ticket: Filter by ticket number
+        - client: Filter by client name
+        - limit: Number of sessions to return (default 50)
+        - offset: Pagination offset (default 0)
+    """
+    from models import ChatSession as ChatSessionModel
+
+    logger = get_helm_logger()
+
+    try:
+        user = g.user
+        user_id = user.get('preferred_username')
+
+        # Build query
+        query = ChatSessionModel.query.filter_by(user_id=user_id)
+
+        # Apply filters
+        ticket = request.args.get('ticket')
+        if ticket:
+            query = query.filter_by(ticket_number=ticket)
+
+        client = request.args.get('client')
+        if client:
+            query = query.filter(ChatSessionModel.client_name.ilike(f'%{client}%'))
+
+        # Pagination
+        limit = min(int(request.args.get('limit', 50)), 100)
+        offset = int(request.args.get('offset', 0))
+
+        # Order by most recent first
+        query = query.order_by(ChatSessionModel.updated_at.desc())
+
+        # Get total count
+        total = query.count()
+
+        # Get sessions
+        sessions = query.limit(limit).offset(offset).all()
+
+        logger.info(f"Listed {len(sessions)} chat sessions for user {user_id}")
+
+        return jsonify({
+            'sessions': [s.to_dict() for s in sessions],
+            'total': total,
+            'limit': limit,
+            'offset': offset
+        })
+
+    except Exception as e:
+        logger.error(f"Error listing chat sessions: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/chat/history/<session_id>', methods=['GET'])
+@token_required
+def get_chat_session(session_id):
+    """
+    Get a specific chat session with all messages.
+    """
+    from models import ChatSession as ChatSessionModel
+
+    logger = get_helm_logger()
+
+    try:
+        user = g.user
+        user_id = user.get('preferred_username')
+
+        # Get session
+        session = ChatSessionModel.query.get(session_id)
+
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+
+        # Verify ownership
+        if session.user_id != user_id:
+            logger.warning(f"User {user_id} attempted to access session {session_id} owned by {session.user_id}")
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get session with messages
+        session_dict = session.to_dict()
+        session_dict['messages'] = [m.to_dict() for m in session.messages]
+
+        logger.info(f"Retrieved session {session_id} with {len(session.messages)} messages for user {user_id}")
+
+        return jsonify(session_dict)
+
+    except Exception as e:
+        logger.error(f"Error getting chat session: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/chat/history/search', methods=['GET'])
+@token_required
+def search_chat_history():
+    """
+    Search chat history by keywords.
+
+    Query parameters:
+        - q: Search query
+        - ticket: Filter by ticket number
+        - limit: Number of results (default 20)
+    """
+    from models import ChatSession as ChatSessionModel, ChatMessage
+
+    logger = get_helm_logger()
+
+    try:
+        user = g.user
+        user_id = user.get('preferred_username')
+
+        query_text = request.args.get('q', '').strip()
+        if not query_text:
+            return jsonify({'error': 'Search query required'}), 400
+
+        # Build query - search in session titles, summaries, and message content
+        query = ChatSessionModel.query.filter_by(user_id=user_id)
+
+        # Filter by ticket if specified
+        ticket = request.args.get('ticket')
+        if ticket:
+            query = query.filter_by(ticket_number=ticket)
+
+        # Search in title or summary or messages
+        from sqlalchemy import or_
+        query = query.join(ChatMessage, ChatSessionModel.id == ChatMessage.session_id)
+        query = query.filter(
+            or_(
+                ChatSessionModel.title.ilike(f'%{query_text}%'),
+                ChatSessionModel.summary.ilike(f'%{query_text}%'),
+                ChatMessage.content.ilike(f'%{query_text}%')
+            )
+        )
+
+        # Get unique sessions
+        query = query.distinct()
+
+        # Limit results
+        limit = min(int(request.args.get('limit', 20)), 50)
+        sessions = query.limit(limit).all()
+
+        logger.info(f"Found {len(sessions)} sessions matching '{query_text}' for user {user_id}")
+
+        return jsonify({
+            'sessions': [s.to_dict() for s in sessions],
+            'query': query_text,
+            'count': len(sessions)
+        })
+
+    except Exception as e:
+        logger.error(f"Error searching chat history: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500

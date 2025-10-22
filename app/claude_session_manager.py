@@ -12,9 +12,12 @@ import subprocess
 import json
 import uuid
 import os
+from datetime import datetime
 from typing import Dict, Optional, Callable
 from .helm_logger import get_helm_logger
 from .presidio_filter import filter_data
+from extensions import db
+from models import ChatSession as ChatSessionModel, ChatMessage
 
 
 class ClaudeSession:
@@ -24,20 +27,54 @@ class ClaudeSession:
     Each chat session maintains context and spawns Claude Code for each message.
     """
 
-    def __init__(self, session_id: str, user: str, context: Dict):
+    def __init__(self, session_id: str, user: str, context: Dict, db_session_id: Optional[str] = None):
         """
         Initialize a new Claude Code session.
 
         Args:
-            session_id: Unique session identifier
+            session_id: Unique session identifier (in-memory)
             user: Username of the person using this session
             context: Context dict with ticket, client, etc.
+            db_session_id: Optional database session ID to resume existing session
         """
         self.session_id = session_id
         self.user = user
         self.context = context
         self.logger = get_helm_logger()
         self.conversation_history = []
+        self.db_session_id = db_session_id
+
+        # Load or create database session
+        if db_session_id:
+            # Resume existing session
+            self.db_session = ChatSessionModel.query.get(db_session_id)
+            if self.db_session:
+                # Load conversation history from database
+                for msg in self.db_session.messages:
+                    self.conversation_history.append({
+                        "role": msg.role,
+                        "content": msg.content
+                    })
+                self.logger.info(f"Resumed chat session {db_session_id} with {len(self.conversation_history)} messages")
+            else:
+                self.logger.warning(f"Could not find session {db_session_id}, creating new one")
+                self.db_session = None
+        else:
+            self.db_session = None
+
+        # Create new database session if needed
+        if not self.db_session:
+            self.db_session = ChatSessionModel(
+                id=str(uuid.uuid4()),
+                user_id=self.user,
+                user_name=self.user,  # TODO: Get actual name from user service
+                ticket_number=context.get('ticket'),
+                client_name=context.get('client')
+            )
+            db.session.add(self.db_session)
+            db.session.commit()
+            self.db_session_id = self.db_session.id
+            self.logger.info(f"Created new chat session {self.db_session_id}")
 
         # Build environment variables for Claude Code
         self.env = os.environ.copy()
@@ -85,6 +122,15 @@ class ClaudeSession:
         try:
             # Add message to conversation history
             self.conversation_history.append({"role": "user", "content": message})
+
+            # Save user message to database
+            user_msg = ChatMessage(
+                session_id=self.db_session_id,
+                role="user",
+                content=message
+            )
+            db.session.add(user_msg)
+            db.session.commit()
 
             self.logger.info(f"Invoking Claude Code for session {self.session_id}: {message[:50]}...")
 
@@ -291,6 +337,19 @@ class ClaudeSession:
             self.logger.info(f"[STREAM] Adding response to history (length: {len(response_text.strip())} chars)")
             self.conversation_history.append({"role": "assistant", "content": response_text.strip()})
 
+            # Save assistant message to database
+            assistant_msg = ChatMessage(
+                session_id=self.db_session_id,
+                role="assistant",
+                content=response_text.strip()
+            )
+            db.session.add(assistant_msg)
+
+            # Update session timestamp
+            self.db_session.updated_at = datetime.utcnow()
+            db.session.commit()
+            self.logger.info(f"[STREAM] Saved assistant response to database")
+
         except subprocess.TimeoutExpired:
             self.logger.error(f"Claude Code timed out for session {self.session_id}")
             if 'process' in locals():
@@ -412,24 +471,28 @@ class ClaudeSessionManager:
         self.sessions: Dict[str, ClaudeSession] = {}
         self.logger = get_helm_logger()
 
-    def create_session(self, user: str, context: Dict) -> str:
+    def create_session(self, user: str, context: Dict, db_session_id: Optional[str] = None) -> str:
         """
-        Create a new Claude Code session.
+        Create a new Claude Code session or resume an existing one.
 
         Args:
             user: Username
             context: Context dict with ticket, client, etc.
+            db_session_id: Optional database session ID to resume
 
         Returns:
-            Session ID
+            Session ID (in-memory)
         """
         session_id = str(uuid.uuid4())
-        session = ClaudeSession(session_id, user, context)
+        session = ClaudeSession(session_id, user, context, db_session_id=db_session_id)
 
         try:
             session.start()
             self.sessions[session_id] = session
-            self.logger.info(f"Created session {session_id} for user {user}")
+            if db_session_id:
+                self.logger.info(f"Created session {session_id} (resumed DB session {db_session_id}) for user {user}")
+            else:
+                self.logger.info(f"Created session {session_id} (new DB session {session.db_session_id}) for user {user}")
             return session_id
         except Exception as e:
             self.logger.error(f"Failed to create session: {e}", exc_info=True)
