@@ -109,7 +109,8 @@ def chat_message():
                     try:
                         chunk_data = json.loads(chunk)
                         response_buffers[response_id]['chunks'].append(chunk_data)
-                        logger.debug(f"Added chunk {chunk_count} type={chunk_data.get('type')}")
+                        chunk_type = chunk_data.get('type') if isinstance(chunk_data, dict) else str(type(chunk_data))
+                        logger.debug(f"Added chunk {chunk_count} type={chunk_type}")
                     except json.JSONDecodeError:
                         response_buffers[response_id]['chunks'].append({'type': 'chunk', 'content': chunk})
                         logger.debug(f"Added text chunk {chunk_count}")
