@@ -96,13 +96,16 @@ class ClaudeSession:
 
             full_prompt = f"{self.system_prompt}\n\n## Conversation History\n\n{conversation_context}"
 
-            # Invoke Claude Code with permissions bypassed
+            # Invoke Claude Code with permissions bypassed and streaming JSON output
             # This is safe since we're in a controlled server environment and only accessing HiveMatrix data
             claude_bin = '/home/david/.npm/_npx/becf7b9e49303068/node_modules/.bin/claude'
             cmd = [
                 claude_bin,
                 '--model', 'claude-sonnet-4-5',
                 '--dangerously-skip-permissions',  # Bypass all permission checks
+                '--print',  # Required for --output-format
+                '--output-format', 'stream-json',  # Get real-time streaming JSON
+                '--include-partial-messages',  # Include partial chunks
                 '--append-system-prompt', full_prompt,
                 message  # The actual user message
             ]
@@ -121,25 +124,55 @@ class ClaudeSession:
             )
 
             response_text = ""
-            in_tool_use = False
 
-            # Stream stdout line by line
+            # Stream stdout line by line - now it's JSON events
             for line in iter(process.stdout.readline, ''):
-                if not line:
+                if not line or not line.strip():
                     break
 
-                # Detect tool usage patterns and emit thinking messages
-                if 'bash' in line.lower() or 'running' in line.lower() or 'cd /' in line:
-                    # Claude is using a tool
-                    action = line.strip()[:80]  # First 80 chars
-                    yield json.dumps({"type": "thinking", "action": f"Running: {action}"}) + "\n"
-                    in_tool_use = True
+                try:
+                    # Parse the JSON event from Claude Code
+                    event = json.loads(line)
+                    event_type = event.get('type')
 
-                # Don't filter Claude's output - only filter data going into the model
-                response_text += line
+                    if event_type == 'tool_use':
+                        # Claude is using a tool - show what it's doing
+                        tool_name = event.get('tool', {}).get('name', 'unknown')
+                        tool_input = event.get('tool', {}).get('input', {})
 
-                # Yield the line as-is
-                yield line
+                        # Extract meaningful info from tool input
+                        if tool_name == 'bash':
+                            command = tool_input.get('command', '')[:100]
+                            yield json.dumps({"type": "thinking", "action": f"Running: {command}"}) + "\n"
+                        else:
+                            yield json.dumps({"type": "thinking", "action": f"Using tool: {tool_name}"}) + "\n"
+
+                    elif event_type == 'text':
+                        # Text content from Claude
+                        text = event.get('text', '')
+                        response_text += text
+                        yield text
+
+                    elif event_type == 'tool_result':
+                        # Tool completed
+                        yield json.dumps({"type": "thinking", "action": "Processing results..."}) + "\n"
+
+                    elif event_type == 'message_start':
+                        # Message starting
+                        pass
+
+                    elif event_type == 'message_stop':
+                        # Message complete
+                        break
+
+                    else:
+                        # Unknown event, log it
+                        self.logger.debug(f"Unknown event type: {event_type}")
+
+                except json.JSONDecodeError:
+                    # Not JSON, treat as plain text
+                    response_text += line
+                    yield line
 
             # Wait for process to complete
             process.wait(timeout=120)
