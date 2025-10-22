@@ -3,133 +3,108 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Brain Hair - AI Tech Assistant</title>
-    <!-- CSS is injected by Nexus proxy -->
-    <style>
-        /* Critical CSS to ensure typing indicator is hidden by default */
-        .typing-indicator {
-            display: none !important;
-        }
-        .typing-indicator.active {
-            display: flex !important;
-        }
-    </style>
-    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+    <title>Brain Hair - AI Assistant</title>
 </head>
-<body class="chat-page">
-    <div class="header">
-        <h1>🧠 Brain Hair - AI Tech Assistant</h1>
-        <div class="context-info">
-            <div class="context-item">
-                <span class="context-label">Ticket:</span>
-                <span class="context-value" id="current-ticket">None</span>
-            </div>
-            <div class="context-item">
-                <span class="context-label">Client:</span>
-                <span class="context-value" id="current-client">None</span>
-            </div>
-            <div class="context-item">
-                <span class="context-label">User:</span>
-                <span class="context-value">{{ user.preferred_username }}</span>
+<body>
+    <!-- Chat History Sidebar -->
+    <div class="chat-history" id="chat-history">
+        <div class="chat-history__header">
+            <h2 class="chat-history__title">Chat History</h2>
+            <button class="chat-history__close" onclick="closeHistory()">&times;</button>
+        </div>
+        <div class="chat-history__search">
+            <input
+                type="text"
+                class="chat-history__search-input"
+                id="history-search"
+                placeholder="Search conversations..."
+            >
+        </div>
+        <div class="chat-history__list" id="history-list">
+            <div style="text-align: center; padding: 2rem; color: #7f8c8d;">
+                Loading...
             </div>
         </div>
     </div>
 
-    <div class="main-container">
-        <div class="sidebar">
-            <h3>Quick Actions</h3>
-            <div class="quick-action" onclick="showHistory()">
-                📜 Chat History
-            </div>
-            <div class="quick-action" onclick="setContext('ticket')">
-                📋 Set Ticket Number
-            </div>
-            <div class="quick-action" onclick="setContext('client')">
-                🏢 Set Client
-            </div>
-            <div class="quick-action" onclick="sendQuickMessage('List recent tickets')">
-                🎫 List Recent Tickets
-            </div>
-            <div class="quick-action" onclick="sendQuickMessage('Search knowledge base')">
-                📚 Search Knowledge
-            </div>
-            <div class="quick-action" onclick="sendQuickMessage('List client devices')">
-                💻 List Devices
-            </div>
-            <div class="quick-action" onclick="clearChat()">
-                🗑️ Clear Chat
+    <!-- Main Chat Container -->
+    <div class="chat">
+        <!-- Chat Header -->
+        <div class="chat__header">
+            <h1 class="chat__title">Brain Hair</h1>
+            <div class="chat__header-actions">
+                <button class="btn chat__new-button" onclick="newChat()">
+                    ➕ New Chat
+                </button>
+                <button class="btn chat__new-button" onclick="toggleHistory()">
+                    📜 History
+                </button>
             </div>
         </div>
 
-        <!-- History Modal -->
-        <div class="modal" id="history-modal" style="display: none;">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Chat History</h2>
-                    <button class="btn btn-secondary" onclick="closeHistory()">×</button>
-                </div>
-                <div class="modal-body">
-                    <div class="history-filters">
-                        <input type="text" id="history-search" placeholder="Search conversations..." class="input-field">
-                        <input type="text" id="history-ticket-filter" placeholder="Filter by ticket..." class="input-field">
-                    </div>
-                    <div class="history-list" id="history-list">
-                        <div class="loading">Loading chat history...</div>
-                    </div>
+        <!-- Messages Area -->
+        <div class="chat__messages" id="messages">
+            <!-- Welcome message -->
+            <div class="chat__message chat__message--assistant">
+                <div class="chat__message-avatar">🧠</div>
+                <div class="chat__message-content">
+                    <p><strong>Hello! I'm Brain Hair</strong>, your AI technical support assistant.</p>
+                    <p>I can help you with:</p>
+                    <ul>
+                        <li>Looking up tickets and client information</li>
+                        <li>Searching the knowledge base</li>
+                        <li>Checking device status</li>
+                        <li>Running commands (with your approval)</li>
+                    </ul>
+                    <p>What can I help you with today?</p>
                 </div>
             </div>
         </div>
 
-        <div class="chat-container">
-            <div class="messages" id="messages">
+        <!-- Typing Indicator -->
+        <div class="chat__typing" id="typing">
+            <div class="chat__typing-dots">
+                <div class="chat__typing-dot"></div>
+                <div class="chat__typing-dot"></div>
+                <div class="chat__typing-dot"></div>
             </div>
+        </div>
 
-            <div class="typing-indicator" id="typing">
-                <span>Claude is thinking</span>
-                <div class="dot"></div>
-                <div class="dot"></div>
-                <div class="dot"></div>
-            </div>
-
-            <div class="input-container">
-                <div class="input-wrapper">
-                    <textarea
-                        class="input-field"
-                        id="message-input"
-                        placeholder="Ask me anything... (Shift+Enter for new line)"
-                        rows="1"
-                    ></textarea>
-                    <button class="btn send-btn" id="send-btn" onclick="sendMessage()">
-                        Send
-                    </button>
-                </div>
+        <!-- Input Area -->
+        <div class="chat__input-container">
+            <div class="chat__input-wrapper">
+                <textarea
+                    class="chat__textarea"
+                    id="message-input"
+                    placeholder="Send a message..."
+                    rows="1"
+                ></textarea>
+                <button class="chat__send-button" id="send-btn" onclick="sendMessage()">
+                    ↑
+                </button>
             </div>
         </div>
     </div>
 
     <script>
-        // API endpoints (generated by Flask url_for)
+        // API endpoints
         const API_CHAT = "{{ url_for('chat_message') }}";
-        const API_COMMAND_APPROVE = "{{ url_for('approve_command') }}";
-        const API_COMMAND_DENY = "{{ url_for('deny_command') }}";
-        const API_SESSION_DELETE = "{{ url_for('destroy_session', session_id='SESSION_ID') }}".replace('SESSION_ID', '{session_id}');
+        const API_CHAT_POLL = "{{ url_for('poll_response', response_id='RESPONSE_ID') }}".replace('RESPONSE_ID', '{response_id}');
         const API_HISTORY = "{{ url_for('list_chat_sessions') }}";
-        const API_HISTORY_SEARCH = "{{ url_for('search_chat_history') }}";
         const API_HISTORY_GET = "{{ url_for('get_chat_session', session_id='SESSION_ID') }}".replace('SESSION_ID', '{session_id}');
+        const API_HISTORY_SEARCH = "{{ url_for('search_chat_history') }}";
 
-        let currentTicket = null;
-        let currentClient = null;
         let sessionId = null;
-        let currentMessageElement = null;
-        let currentMessageContent = '';
-        let currentDbSessionId = null;  // Database session ID for resuming
+        let currentDbSessionId = null;
+        let pollingInterval = null;
+        let currentResponseId = null;
+        let currentOffset = 0;
 
         // Auto-resize textarea
         const textarea = document.getElementById('message-input');
         textarea.addEventListener('input', function() {
             this.style.height = 'auto';
-            this.style.height = this.scrollHeight + 'px';
+            this.style.height = Math.min(this.scrollHeight, 200) + 'px';
         });
 
         // Send on Enter (but not Shift+Enter)
@@ -140,581 +115,311 @@
             }
         });
 
-        // Clean up session when page unloads
-        window.addEventListener('beforeunload', function() {
-            if (sessionId) {
-                const url = API_SESSION_DELETE.replace('{session_id}', sessionId);
-                navigator.sendBeacon(url, JSON.stringify({_method: 'DELETE'}));
-            }
-        });
-
-        function renderMarkdown(text) {
-            // Parse markdown to HTML
-            const html = marked.parse(text);
-            // Sanitize HTML to prevent XSS
-            return DOMPurify.sanitize(html);
-        }
-
-        function addMessage(role, content, streaming = false) {
-            const messagesDiv = document.getElementById('messages');
-
-            if (streaming && role === 'assistant' && currentMessageElement) {
-                // Update existing streaming message
-                const contentDiv = currentMessageElement.querySelector('.message-content');
-
-                // Preserve activity lines (they have the ⚙️ emoji)
-                const activityLines = Array.from(contentDiv.querySelectorAll('div'))
-                    .filter(div => div.textContent.startsWith('⚙️'));
-
-                // Render new markdown content
-                contentDiv.innerHTML = renderMarkdown(content);
-
-                // Re-add activity lines at the top
-                activityLines.forEach(line => {
-                    contentDiv.insertBefore(line, contentDiv.firstChild);
-                });
-
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                return currentMessageElement;
-            }
-
-            // Create new message
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${role}`;
-
-            const avatar = document.createElement('div');
-            avatar.className = 'message-avatar';
-            avatar.textContent = role === 'user' ? '👤' : 'AI';
-
-            const contentDiv = document.createElement('div');
-            contentDiv.className = 'message-content';
-
-            // Render markdown for assistant, plain text for user
-            if (role === 'assistant') {
-                contentDiv.innerHTML = renderMarkdown(content);
-            } else {
-                contentDiv.textContent = content;
-            }
-
-            messageDiv.appendChild(avatar);
-            messageDiv.appendChild(contentDiv);
-            messagesDiv.appendChild(messageDiv);
-
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-            if (streaming && role === 'assistant') {
-                currentMessageElement = messageDiv;
-            }
-
-            return messageDiv;
-        }
-
         async function sendMessage() {
             const input = document.getElementById('message-input');
             const message = input.value.trim();
 
             if (!message) return;
 
-            // Add user message
-            addMessage('user', message);
-
             // Clear input
             input.value = '';
             input.style.height = 'auto';
 
-            // Show typing indicator
-            document.getElementById('typing').classList.add('active');
-            document.getElementById('send-btn').disabled = true;
+            // Add user message to UI
+            addMessage('user', message);
 
-            // Reset streaming state
-            currentMessageElement = null;
-            currentMessageContent = '';
+            // Show typing indicator
+            showTyping();
 
             try {
-                // Start Claude Code in background - get response_id
+                // Send message to backend
                 const response = await fetch(API_CHAT, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'same-origin',
+                    headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         message: message,
                         session_id: sessionId,
-                        db_session_id: currentDbSessionId,  // Pass DB session ID for resuming
-                        ticket: currentTicket,
-                        client: currentClient
+                        db_session_id: currentDbSessionId
                     })
                 });
 
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-
                 const data = await response.json();
-                const responseId = data.response_id;
-                sessionId = data.session_id;
 
-                console.log('Response ID:', responseId, 'Session ID:', sessionId);
-
-                // Poll for chunks
-                let offset = 0;
-                let done = false;
-
-                while (!done) {
-                    await new Promise(resolve => setTimeout(resolve, 500)); // Poll every 500ms
-
-                    // Use relative URL to preserve /brainhair prefix through proxy
-                    const pollResponse = await fetch(`api/chat/poll/${responseId}?offset=${offset}`, {
-                        credentials: 'same-origin'
-                    });
-
-                    if (!pollResponse.ok) {
-                        throw new Error(`Poll failed: ${pollResponse.status}`);
-                    }
-
-                    const pollData = await pollResponse.json();
-
-                    // Process new chunks
-                    for (const chunk of pollData.chunks) {
-                        handleChunkMessage(chunk);
-                    }
-
-                    offset = pollData.offset;
-                    done = pollData.done;
-
-                    if (pollData.error) {
-                        throw new Error(pollData.error);
-                    }
+                if (data.error) {
+                    hideTyping();
+                    addMessage('assistant', `❌ Error: ${data.error}`);
+                    return;
                 }
+
+                // Start polling for response
+                sessionId = data.session_id;
+                currentResponseId = data.response_id;
+                currentOffset = 0;
+                startPolling();
 
             } catch (error) {
-                console.error('Error:', error);
+                hideTyping();
                 addMessage('assistant', `❌ Error: ${error.message}`);
-            } finally {
-                document.getElementById('typing').classList.remove('active');
-                document.getElementById('send-btn').disabled = false;
-                input.focus();
-                currentMessageElement = null;
             }
         }
 
-        function handleChunkMessage(data) {
-            switch (data.type) {
-                case 'thinking':
-                    // Show what Claude is doing as an activity message
-                    const activity = data.action || 'Claude is thinking';
+        function startPolling() {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+            }
 
-                    // If no current message, create one to hold activities
-                    if (!currentMessageElement) {
-                        currentMessageElement = addMessage('assistant', '', true);
+            pollingInterval = setInterval(async () => {
+                try {
+                    const url = API_CHAT_POLL.replace('{response_id}', currentResponseId) + `?offset=${currentOffset}`;
+                    const response = await fetch(url);
+                    const data = await response.json();
+
+                    if (data.chunks && data.chunks.length > 0) {
+                        // Process new chunks
+                        for (const chunk of data.chunks) {
+                            if (chunk.type === 'chunk') {
+                                appendToLastMessage(chunk.content);
+                            } else if (chunk.type === 'error') {
+                                appendToLastMessage(`\n\n❌ ${chunk.content}`);
+                            }
+                        }
+                        currentOffset = data.offset;
                     }
 
-                    // Add activity indicator to the message
-                    const contentDiv = currentMessageElement.querySelector('.message-content');
-                    const activityLine = document.createElement('div');
-                    activityLine.style.color = '#89b4fa';
-                    activityLine.style.fontStyle = 'italic';
-                    activityLine.style.fontSize = '0.9em';
-                    activityLine.style.marginBottom = '0.5rem';
-                    activityLine.textContent = '⚙️ ' + activity;
-                    contentDiv.appendChild(activityLine);
+                    if (data.done) {
+                        clearInterval(pollingInterval);
+                        hideTyping();
 
-                    // Scroll to bottom
-                    const messagesDiv = document.getElementById('messages');
-                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                    break;
-
-                case 'chunk':
-                    // Append to current message content
-                    currentMessageContent += data.content;
-
-                    // Update or create message
-                    addMessage('assistant', currentMessageContent, true);
-                    break;
-
-                case 'command_approval':
-                    // Show command approval request
-                    showCommandApproval(data.data);
-                    break;
-
-                case 'live_message': {
-                    // Live messages from Claude Code (stderr output)
-                    const liveMsg = data.content || 'Claude is working...';
-
-                    // If no current message, create one to hold live messages
-                    if (!currentMessageElement) {
-                        currentMessageElement = addMessage('assistant', '', true);
+                        if (data.error) {
+                            addMessage('assistant', `❌ Error: ${data.error}`);
+                        }
                     }
-
-                    // Add live message indicator
-                    const liveContentDiv = currentMessageElement.querySelector('.message-content');
-                    const liveLine = document.createElement('div');
-                    liveLine.style.color = '#94e2d5';
-                    liveLine.style.fontStyle = 'italic';
-                    liveLine.style.fontSize = '0.85em';
-                    liveLine.style.marginBottom = '0.3rem';
-                    liveLine.style.opacity = '0.8';
-                    liveLine.textContent = '💬 ' + liveMsg;
-                    liveContentDiv.appendChild(liveLine);
-
-                    // Scroll to bottom
-                    const liveMsgDiv = document.getElementById('messages');
-                    liveMsgDiv.scrollTop = liveMsgDiv.scrollHeight;
-                    break;
+                } catch (error) {
+                    clearInterval(pollingInterval);
+                    hideTyping();
+                    addMessage('assistant', `❌ Error: ${error.message}`);
                 }
-
-                default:
-                    console.warn('Unknown chunk type:', data.type);
-            }
+            }, 300); // Poll every 300ms
         }
 
-        function showCommandApproval(command) {
-            const lastMessage = document.querySelector('.messages .message:last-child .message-content');
-            const approvalDiv = document.createElement('div');
-            approvalDiv.className = 'command-approval';
-            approvalDiv.id = `approval-${command.id}`;
-            approvalDiv.innerHTML = `
-                <h4>⚠️ Command Approval Required</h4>
-                <p><strong>Device ID:</strong> ${command.device_id}</p>
-                <p><strong>Command:</strong></p>
-                <div class="command-code">${escapeHtml(command.command)}</div>
-                <p><strong>Purpose:</strong> ${escapeHtml(command.reason)}</p>
-                <div class="command-buttons">
-                    <button class="btn btn-approve" onclick="approveCommand('${command.id}')">
-                        ✓ Approve & Execute
-                    </button>
-                    <button class="btn btn-deny" onclick="denyCommand('${command.id}')">
-                        ✗ Deny
-                    </button>
+        function addMessage(role, content) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat__message chat__message--${role}`;
+
+            const avatar = document.createElement('div');
+            avatar.className = 'chat__message-avatar';
+            avatar.textContent = role === 'user' ? '👤' : '🧠';
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'chat__message-content';
+            contentDiv.innerHTML = formatMessage(content);
+
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(contentDiv);
+            messagesDiv.appendChild(messageDiv);
+
+            // Scroll to bottom
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            return contentDiv;
+        }
+
+        function appendToLastMessage(content) {
+            const messagesDiv = document.getElementById('messages');
+            const messages = messagesDiv.querySelectorAll('.chat__message');
+
+            if (messages.length === 0) {
+                addMessage('assistant', content);
+                return;
+            }
+
+            const lastMessage = messages[messages.length - 1];
+
+            // If last message is from user or not an assistant message, create new one
+            if (!lastMessage.classList.contains('chat__message--assistant')) {
+                addMessage('assistant', content);
+                return;
+            }
+
+            const contentDiv = lastMessage.querySelector('.chat__message-content');
+            contentDiv.innerHTML += formatMessage(content);
+
+            // Scroll to bottom
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function formatMessage(text) {
+            // Simple markdown-like formatting
+            text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+            // Code blocks
+            text = text.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+
+            // Inline code
+            text = text.replace(/`(.*?)`/g, '<code>$1</code>');
+
+            // Convert newlines to <br> if not in a block element
+            if (!text.includes('<pre>') && !text.includes('<ul>')) {
+                text = text.replace(/\n/g, '<br>');
+            }
+
+            return text;
+        }
+
+        function showTyping() {
+            const typing = document.getElementById('typing');
+            typing.classList.add('chat__typing--visible');
+        }
+
+        function hideTyping() {
+            const typing = document.getElementById('typing');
+            typing.classList.remove('chat__typing--visible');
+        }
+
+        function newChat() {
+            sessionId = null;
+            currentDbSessionId = null;
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.innerHTML = `
+                <div class="chat__message chat__message--assistant">
+                    <div class="chat__message-avatar">🧠</div>
+                    <div class="chat__message-content">
+                        <p><strong>Hello! I'm Brain Hair</strong>, your AI technical support assistant.</p>
+                        <p>I can help you with:</p>
+                        <ul>
+                            <li>Looking up tickets and client information</li>
+                            <li>Searching the knowledge base</li>
+                            <li>Checking device status</li>
+                            <li>Running commands (with your approval)</li>
+                        </ul>
+                        <p>What can I help you with today?</p>
+                    </div>
                 </div>
             `;
-            lastMessage.appendChild(approvalDiv);
         }
 
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
+        // ==================== History Functions ====================
 
-        async function approveCommand(commandId) {
-            try {
-                // Disable buttons
-                const approvalDiv = document.getElementById(`approval-${commandId}`);
-                const buttons = approvalDiv.querySelectorAll('button');
-                buttons.forEach(btn => btn.disabled = true);
+        function toggleHistory() {
+            const history = document.getElementById('chat-history');
+            history.classList.toggle('chat-history--open');
 
-                // Show executing message
-                const statusMsg = document.createElement('p');
-                statusMsg.style.marginTop = '0.5rem';
-                statusMsg.style.color = '#f9e2af';
-                statusMsg.innerHTML = '⏳ <strong>Executing command...</strong>';
-                approvalDiv.appendChild(statusMsg);
-
-                // Call backend to execute
-                const response = await fetch(API_COMMAND_APPROVE, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'same-origin',
-                    body: JSON.stringify({
-                        command_id: commandId
-                    })
-                });
-
-                const data = await response.json();
-
-                if (data.status === 'success') {
-                    // Show output
-                    statusMsg.innerHTML = '✅ <strong>Command executed successfully!</strong>';
-                    statusMsg.style.color = '#a6e3a1';
-
-                    const outputDiv = document.createElement('div');
-                    outputDiv.className = 'command-code';
-                    outputDiv.style.marginTop = '0.5rem';
-                    outputDiv.textContent = data.output;
-                    approvalDiv.appendChild(outputDiv);
-
-                    // Remove buttons
-                    approvalDiv.querySelector('.command-buttons').remove();
-                } else {
-                    statusMsg.innerHTML = `❌ <strong>Error:</strong> ${data.error || 'Unknown error'}`;
-                    statusMsg.style.color = '#f38ba8';
-                    buttons.forEach(btn => btn.disabled = false);
-                }
-
-            } catch (error) {
-                console.error('Error approving command:', error);
-                addMessage('assistant', `❌ Error executing command: ${error.message}`);
+            if (history.classList.contains('chat-history--open')) {
+                loadHistory();
             }
-        }
-
-        async function denyCommand(commandId) {
-            try {
-                // Call backend to deny
-                await fetch(API_COMMAND_DENY, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'same-origin',
-                    body: JSON.stringify({
-                        command_id: commandId
-                    })
-                });
-
-                // Update UI
-                const approvalDiv = document.getElementById(`approval-${commandId}`);
-                approvalDiv.innerHTML = '<p style="color: #f38ba8;">❌ <strong>Command denied by user</strong></p>';
-
-                addMessage('assistant', 'Understood. Command cancelled. Is there another way I can help?');
-
-            } catch (error) {
-                console.error('Error denying command:', error);
-            }
-        }
-
-        function setContext(type) {
-            const value = prompt(`Enter ${type} ${type === 'ticket' ? 'number' : 'name'}:`);
-            if (value) {
-                if (type === 'ticket') {
-                    currentTicket = value;
-                    document.getElementById('current-ticket').textContent = value;
-                    addMessage('assistant', `✓ Context updated: Now working on ticket #${value}`);
-                } else {
-                    currentClient = value;
-                    document.getElementById('current-client').textContent = value;
-                    addMessage('assistant', `✓ Context updated: Now viewing client ${value}`);
-                }
-
-                // Destroy old session since context changed
-                if (sessionId) {
-                    destroySession();
-                }
-            }
-        }
-
-        function sendQuickMessage(msg) {
-            document.getElementById('message-input').value = msg;
-            sendMessage();
-        }
-
-        async function destroySession() {
-            if (sessionId) {
-                try {
-                    const url = API_SESSION_DELETE.replace('{session_id}', sessionId);
-                    await fetch(url, {
-                        method: 'DELETE',
-                        credentials: 'same-origin'
-                    });
-                } catch (error) {
-                    console.error('Error destroying session:', error);
-                }
-                sessionId = null;
-            }
-        }
-
-        function clearChat() {
-            if (confirm('Clear chat history and start a new session?')) {
-                // Destroy current session
-                destroySession();
-
-                // Clear UI
-                document.getElementById('messages').innerHTML = '';
-                currentMessageElement = null;
-                currentMessageContent = '';
-
-                // Reset context
-                currentTicket = null;
-                currentClient = null;
-                document.getElementById('current-ticket').textContent = 'None';
-                document.getElementById('current-client').textContent = 'None';
-
-                // Show welcome message
-                showWelcomeMessage();
-            }
-        }
-
-        function showWelcomeMessage() {
-            const welcomeText = `Hello! I'm your AI tech assistant. I can help you with:
-
-- Looking up tickets and client information
-- Searching the knowledge base
-- Checking device status
-- Running commands (with your approval)
-
-What can I help you with today?`;
-            addMessage('assistant', welcomeText);
-        }
-
-        // ==================== Chat History Functions ====================
-
-        function showHistory() {
-            const modal = document.getElementById('history-modal');
-            modal.style.display = 'flex';
-            loadHistory();
-
-            // Add search listeners
-            const searchInput = document.getElementById('history-search');
-            const ticketFilter = document.getElementById('history-ticket-filter');
-
-            searchInput.addEventListener('input', debounce(filterHistory, 300));
-            ticketFilter.addEventListener('input', debounce(filterHistory, 300));
         }
 
         function closeHistory() {
-            document.getElementById('history-modal').style.display = 'none';
-        }
-
-        function debounce(func, wait) {
-            let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-            };
+            document.getElementById('chat-history').classList.remove('chat-history--open');
         }
 
         async function loadHistory() {
-            const historyList = document.getElementById('history-list');
-            historyList.innerHTML = '<div class="loading">Loading chat history...</div>';
+            const listDiv = document.getElementById('history-list');
+            listDiv.innerHTML = '<div style="text-align: center; padding: 2rem; color: #7f8c8d;">Loading...</div>';
 
             try {
                 const response = await fetch(API_HISTORY + '?limit=50');
-                if (!response.ok) throw new Error('Failed to load history');
-
                 const data = await response.json();
-                displayHistorySessions(data.sessions);
+
+                if (data.sessions && data.sessions.length > 0) {
+                    displayHistorySessions(data.sessions);
+                } else {
+                    listDiv.innerHTML = '<div style="text-align: center; padding: 2rem; color: #7f8c8d;">No chat history yet</div>';
+                }
             } catch (error) {
-                console.error('Error loading history:', error);
-                historyList.innerHTML = '<div class="error">Failed to load chat history</div>';
-            }
-        }
-
-        async function filterHistory() {
-            const searchQuery = document.getElementById('history-search').value.trim();
-            const ticketFilter = document.getElementById('history-ticket-filter').value.trim();
-            const historyList = document.getElementById('history-list');
-
-            historyList.innerHTML = '<div class="loading">Searching...</div>';
-
-            try {
-                let url = API_HISTORY;
-                const params = new URLSearchParams();
-
-                if (ticketFilter) {
-                    params.append('ticket', ticketFilter);
-                }
-
-                if (searchQuery) {
-                    url = API_HISTORY_SEARCH;
-                    params.append('q', searchQuery);
-                }
-
-                if (ticketFilter && searchQuery) {
-                    params.append('ticket', ticketFilter);
-                }
-
-                const response = await fetch(url + '?' + params.toString());
-                if (!response.ok) throw new Error('Search failed');
-
-                const data = await response.json();
-                displayHistorySessions(data.sessions);
-            } catch (error) {
-                console.error('Error filtering history:', error);
-                historyList.innerHTML = '<div class="error">Search failed</div>';
+                listDiv.innerHTML = `<div style="text-align: center; padding: 2rem; color: #e74c3c;">Error loading history</div>`;
             }
         }
 
         function displayHistorySessions(sessions) {
-            const historyList = document.getElementById('history-list');
+            const listDiv = document.getElementById('history-list');
+            listDiv.innerHTML = '';
 
-            if (!sessions || sessions.length === 0) {
-                historyList.innerHTML = '<div class="empty-state">No chat sessions found</div>';
-                return;
-            }
-
-            historyList.innerHTML = '';
             sessions.forEach(session => {
-                const sessionEl = document.createElement('div');
-                sessionEl.className = 'history-item';
-                sessionEl.onclick = () => resumeSession(session.id);
+                const item = document.createElement('div');
+                item.className = 'chat-history__item';
+                item.onclick = () => resumeSession(session.id);
 
-                const date = new Date(session.updated_at);
-                const dateStr = date.toLocaleString();
+                const date = new Date(session.created_at);
+                const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
 
-                sessionEl.innerHTML = `
-                    <div class="history-item-header">
-                        <strong>${session.title || 'Chat Session'}</strong>
-                        <span class="history-date">${dateStr}</span>
+                item.innerHTML = `
+                    <div class="chat-history__item-title">${session.title || 'Chat Session'}</div>
+                    <div class="chat-history__item-meta">
+                        <span>${dateStr}</span>
+                        ${session.ticket_number ? `<span>Ticket #${session.ticket_number}</span>` : ''}
                     </div>
-                    <div class="history-item-meta">
-                        ${session.ticket_number ? `<span class="badge">🎫 ${session.ticket_number}</span>` : ''}
-                        ${session.client_name ? `<span class="badge">🏢 ${session.client_name}</span>` : ''}
-                        <span class="badge">💬 ${session.message_count} messages</span>
-                    </div>
-                    ${session.summary ? `<div class="history-item-summary">${session.summary}</div>` : ''}
                 `;
 
-                historyList.appendChild(sessionEl);
+                listDiv.appendChild(item);
             });
         }
 
         async function resumeSession(dbSessionId) {
             try {
-                // Load the session from the database
-                const response = await fetch(API_HISTORY_GET.replace('{session_id}', dbSessionId));
-                if (!response.ok) throw new Error('Failed to load session');
+                const url = API_HISTORY_GET.replace('{session_id}', dbSessionId);
+                const response = await fetch(url);
+                const data = await response.json();
 
-                const session = await response.json();
+                if (data.error) {
+                    alert('Error loading session: ' + data.error);
+                    return;
+                }
 
                 // Clear current chat
-                document.getElementById('messages').innerHTML = '';
+                const messagesDiv = document.getElementById('messages');
+                messagesDiv.innerHTML = '';
 
-                // Set context
-                if (session.ticket_number) {
-                    currentTicket = session.ticket_number;
-                    document.getElementById('current-ticket').textContent = currentTicket;
-                }
-                if (session.client_name) {
-                    currentClient = session.client_name;
-                    document.getElementById('current-client').textContent = currentClient;
+                // Load messages
+                if (data.messages) {
+                    data.messages.forEach(msg => {
+                        addMessage(msg.role, msg.content);
+                    });
                 }
 
-                // Store the database session ID for continuing the conversation
+                // Set session IDs
                 currentDbSessionId = dbSessionId;
+                sessionId = null; // Will be created on next message
 
-                // Display all messages
-                session.messages.forEach(msg => {
-                    addMessage(msg.role, msg.content);
-                });
-
-                // Close history modal
+                // Close history
                 closeHistory();
 
-                // Show notification
-                addMessage('system', `📜 Resumed chat session from ${new Date(session.updated_at).toLocaleString()}`);
             } catch (error) {
-                console.error('Error resuming session:', error);
-                alert('Failed to resume session');
+                alert('Error resuming session: ' + error.message);
             }
         }
 
-        // Initialize welcome message on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            showWelcomeMessage();
+        // Search with debounce
+        let searchTimeout;
+        document.getElementById('history-search').addEventListener('input', function(e) {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                const query = e.target.value.trim();
+                if (query) {
+                    searchHistory(query);
+                } else {
+                    loadHistory();
+                }
+            }, 300);
         });
 
-        // Close modal when clicking outside
-        window.onclick = function(event) {
-            const modal = document.getElementById('history-modal');
-            if (event.target == modal) {
-                closeHistory();
+        async function searchHistory(query) {
+            const listDiv = document.getElementById('history-list');
+            listDiv.innerHTML = '<div style="text-align: center; padding: 2rem; color: #7f8c8d;">Searching...</div>';
+
+            try {
+                const response = await fetch(API_HISTORY_SEARCH + `?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+
+                if (data.sessions && data.sessions.length > 0) {
+                    displayHistorySessions(data.sessions);
+                } else {
+                    listDiv.innerHTML = '<div style="text-align: center; padding: 2rem; color: #7f8c8d;">No results found</div>';
+                }
+            } catch (error) {
+                listDiv.innerHTML = '<div style="text-align: center; padding: 2rem; color: #e74c3c;">Error searching</div>';
             }
         }
     </script>
