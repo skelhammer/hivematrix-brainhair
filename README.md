@@ -32,6 +32,46 @@ cd hivematrix-brainhair
 ./install.sh
 ```
 
+### Database Setup
+
+Brain Hair requires PostgreSQL for storing chat history. Set up the database before first run:
+
+**1. Create the database and user in PostgreSQL:**
+
+```bash
+sudo -u postgres psql
+```
+
+```sql
+-- Create database
+CREATE DATABASE brainhair_db;
+
+-- Create user
+CREATE USER brainhair_user WITH PASSWORD 'your_secure_password';
+
+-- Grant permissions
+GRANT ALL PRIVILEGES ON DATABASE brainhair_db TO brainhair_user;
+
+-- Exit psql
+\q
+```
+
+**2. Run the initialization script:**
+
+```bash
+cd hivematrix-brainhair
+source pyenv/bin/activate
+python init_db.py
+```
+
+The script will:
+- Prompt for database connection details (host, port, database name, user, password)
+- Test the connection
+- Save configuration to `instance/brainhair.conf`
+- Create database tables (chat_sessions, chat_messages)
+
+**Note**: The database password is stored securely in `instance/brainhair.conf` which is excluded from git via `.gitignore`.
+
 ### Running
 
 Start via Helm:
