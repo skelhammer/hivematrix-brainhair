@@ -58,6 +58,7 @@ def chat_message():
         data = request.get_json()
         message = data.get('message', '')
         session_id = data.get('session_id')
+        db_session_id = data.get('db_session_id')  # Database session ID for resuming
         ticket = data.get('ticket')
         client = data.get('client')
 
@@ -74,10 +75,10 @@ def chat_message():
         if session_id:
             session = session_manager.get_session(session_id)
             if not session:
-                session_id = session_manager.create_session(user, context)
+                session_id = session_manager.create_session(user, context, db_session_id=db_session_id)
                 session = session_manager.get_session(session_id)
         else:
-            session_id = session_manager.create_session(user, context)
+            session_id = session_manager.create_session(user, context, db_session_id=db_session_id)
             session = session_manager.get_session(session_id)
 
         if not session:

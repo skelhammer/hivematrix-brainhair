@@ -39,6 +39,9 @@
     <div class="main-container">
         <div class="sidebar">
             <h3>Quick Actions</h3>
+            <div class="quick-action" onclick="showHistory()">
+                📜 Chat History
+            </div>
             <div class="quick-action" onclick="setContext('ticket')">
                 📋 Set Ticket Number
             </div>
@@ -56,6 +59,25 @@
             </div>
             <div class="quick-action" onclick="clearChat()">
                 🗑️ Clear Chat
+            </div>
+        </div>
+
+        <!-- History Modal -->
+        <div class="modal" id="history-modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Chat History</h2>
+                    <button class="btn btn-secondary" onclick="closeHistory()">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="history-filters">
+                        <input type="text" id="history-search" placeholder="Search conversations..." class="input-field">
+                        <input type="text" id="history-ticket-filter" placeholder="Filter by ticket..." class="input-field">
+                    </div>
+                    <div class="history-list" id="history-list">
+                        <div class="loading">Loading chat history...</div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -92,12 +114,16 @@
         const API_COMMAND_APPROVE = "{{ url_for('approve_command') }}";
         const API_COMMAND_DENY = "{{ url_for('deny_command') }}";
         const API_SESSION_DELETE = "{{ url_for('destroy_session', session_id='SESSION_ID') }}".replace('SESSION_ID', '{session_id}');
+        const API_HISTORY = "{{ url_for('list_chat_sessions') }}";
+        const API_HISTORY_SEARCH = "{{ url_for('search_chat_history') }}";
+        const API_HISTORY_GET = "{{ url_for('get_chat_session', session_id='SESSION_ID') }}".replace('SESSION_ID', '{session_id}');
 
         let currentTicket = null;
         let currentClient = null;
         let sessionId = null;
         let currentMessageElement = null;
         let currentMessageContent = '';
+        let currentDbSessionId = null;  // Database session ID for resuming
 
         // Auto-resize textarea
         const textarea = document.getElementById('message-input');
@@ -215,6 +241,7 @@
                     body: JSON.stringify({
                         message: message,
                         session_id: sessionId,
+                        db_session_id: currentDbSessionId,  // Pass DB session ID for resuming
                         ticket: currentTicket,
                         client: currentClient
                     })
@@ -522,10 +549,174 @@ What can I help you with today?`;
             addMessage('assistant', welcomeText);
         }
 
+        // ==================== Chat History Functions ====================
+
+        function showHistory() {
+            const modal = document.getElementById('history-modal');
+            modal.style.display = 'flex';
+            loadHistory();
+
+            // Add search listeners
+            const searchInput = document.getElementById('history-search');
+            const ticketFilter = document.getElementById('history-ticket-filter');
+
+            searchInput.addEventListener('input', debounce(filterHistory, 300));
+            ticketFilter.addEventListener('input', debounce(filterHistory, 300));
+        }
+
+        function closeHistory() {
+            document.getElementById('history-modal').style.display = 'none';
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        async function loadHistory() {
+            const historyList = document.getElementById('history-list');
+            historyList.innerHTML = '<div class="loading">Loading chat history...</div>';
+
+            try {
+                const response = await fetch(API_HISTORY + '?limit=50');
+                if (!response.ok) throw new Error('Failed to load history');
+
+                const data = await response.json();
+                displayHistorySessions(data.sessions);
+            } catch (error) {
+                console.error('Error loading history:', error);
+                historyList.innerHTML = '<div class="error">Failed to load chat history</div>';
+            }
+        }
+
+        async function filterHistory() {
+            const searchQuery = document.getElementById('history-search').value.trim();
+            const ticketFilter = document.getElementById('history-ticket-filter').value.trim();
+            const historyList = document.getElementById('history-list');
+
+            historyList.innerHTML = '<div class="loading">Searching...</div>';
+
+            try {
+                let url = API_HISTORY;
+                const params = new URLSearchParams();
+
+                if (ticketFilter) {
+                    params.append('ticket', ticketFilter);
+                }
+
+                if (searchQuery) {
+                    url = API_HISTORY_SEARCH;
+                    params.append('q', searchQuery);
+                }
+
+                if (ticketFilter && searchQuery) {
+                    params.append('ticket', ticketFilter);
+                }
+
+                const response = await fetch(url + '?' + params.toString());
+                if (!response.ok) throw new Error('Search failed');
+
+                const data = await response.json();
+                displayHistorySessions(data.sessions);
+            } catch (error) {
+                console.error('Error filtering history:', error);
+                historyList.innerHTML = '<div class="error">Search failed</div>';
+            }
+        }
+
+        function displayHistorySessions(sessions) {
+            const historyList = document.getElementById('history-list');
+
+            if (!sessions || sessions.length === 0) {
+                historyList.innerHTML = '<div class="empty-state">No chat sessions found</div>';
+                return;
+            }
+
+            historyList.innerHTML = '';
+            sessions.forEach(session => {
+                const sessionEl = document.createElement('div');
+                sessionEl.className = 'history-item';
+                sessionEl.onclick = () => resumeSession(session.id);
+
+                const date = new Date(session.updated_at);
+                const dateStr = date.toLocaleString();
+
+                sessionEl.innerHTML = `
+                    <div class="history-item-header">
+                        <strong>${session.title || 'Chat Session'}</strong>
+                        <span class="history-date">${dateStr}</span>
+                    </div>
+                    <div class="history-item-meta">
+                        ${session.ticket_number ? `<span class="badge">🎫 ${session.ticket_number}</span>` : ''}
+                        ${session.client_name ? `<span class="badge">🏢 ${session.client_name}</span>` : ''}
+                        <span class="badge">💬 ${session.message_count} messages</span>
+                    </div>
+                    ${session.summary ? `<div class="history-item-summary">${session.summary}</div>` : ''}
+                `;
+
+                historyList.appendChild(sessionEl);
+            });
+        }
+
+        async function resumeSession(dbSessionId) {
+            try {
+                // Load the session from the database
+                const response = await fetch(API_HISTORY_GET.replace('{session_id}', dbSessionId));
+                if (!response.ok) throw new Error('Failed to load session');
+
+                const session = await response.json();
+
+                // Clear current chat
+                document.getElementById('messages').innerHTML = '';
+
+                // Set context
+                if (session.ticket_number) {
+                    currentTicket = session.ticket_number;
+                    document.getElementById('current-ticket').textContent = currentTicket;
+                }
+                if (session.client_name) {
+                    currentClient = session.client_name;
+                    document.getElementById('current-client').textContent = currentClient;
+                }
+
+                // Store the database session ID for continuing the conversation
+                currentDbSessionId = dbSessionId;
+
+                // Display all messages
+                session.messages.forEach(msg => {
+                    addMessage(msg.role, msg.content);
+                });
+
+                // Close history modal
+                closeHistory();
+
+                // Show notification
+                addMessage('system', `📜 Resumed chat session from ${new Date(session.updated_at).toLocaleString()}`);
+            } catch (error) {
+                console.error('Error resuming session:', error);
+                alert('Failed to resume session');
+            }
+        }
+
         // Initialize welcome message on page load
         document.addEventListener('DOMContentLoaded', function() {
             showWelcomeMessage();
         });
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('history-modal');
+            if (event.target == modal) {
+                closeHistory();
+            }
+        }
     </script>
 </body>
 </html>
