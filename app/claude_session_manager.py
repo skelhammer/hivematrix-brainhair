@@ -136,38 +136,50 @@ class ClaudeSession:
                     event = json.loads(line)
                     event_type = event.get('type')
 
-                    if event_type == 'tool_use':
-                        # Claude is using a tool - show what it's doing
-                        tool_name = event.get('tool', {}).get('name', 'unknown')
-                        tool_input = event.get('tool', {}).get('input', {})
+                    if event_type == 'assistant':
+                        # Assistant message with content
+                        message = event.get('message', {})
+                        content_blocks = message.get('content', [])
 
-                        # Extract meaningful info from tool input
-                        if tool_name == 'bash':
-                            command = tool_input.get('command', '')[:100]
-                            yield json.dumps({"type": "thinking", "action": f"Running: {command}"}) + "\n"
-                        else:
-                            yield json.dumps({"type": "thinking", "action": f"Using tool: {tool_name}"}) + "\n"
+                        for block in content_blocks:
+                            block_type = block.get('type')
 
-                    elif event_type == 'text':
-                        # Text content from Claude
-                        text = event.get('text', '')
-                        response_text += text
-                        yield text
+                            if block_type == 'text':
+                                # Text response from Claude
+                                text = block.get('text', '')
+                                response_text += text
+                                yield text
 
-                    elif event_type == 'tool_result':
-                        # Tool completed
-                        yield json.dumps({"type": "thinking", "action": "Processing results..."}) + "\n"
+                            elif block_type == 'tool_use':
+                                # Claude is using a tool
+                                tool_name = block.get('name', 'unknown')
+                                tool_input = block.get('input', {})
 
-                    elif event_type == 'message_start':
-                        # Message starting
-                        pass
+                                if tool_name == 'Bash':
+                                    command = tool_input.get('command', '')[:150]
+                                    yield json.dumps({"type": "thinking", "action": f"Running: {command}"}) + "\n"
+                                else:
+                                    yield json.dumps({"type": "thinking", "action": f"Using {tool_name}"}) + "\n"
 
-                    elif event_type == 'message_stop':
-                        # Message complete
+                    elif event_type == 'result':
+                        # Final result - message complete
                         break
 
+                    elif event_type == 'system':
+                        # System initialization event
+                        pass
+
+                    elif event_type == 'stream_event':
+                        # Streaming event - usually partial updates
+                        # These come before the full assistant message
+                        pass
+
+                    elif event_type == 'user':
+                        # User message echo
+                        pass
+
                     else:
-                        # Unknown event, log it
+                        # Unknown event, log it for debugging
                         self.logger.debug(f"Unknown event type: {event_type}")
 
                 except json.JSONDecodeError:
