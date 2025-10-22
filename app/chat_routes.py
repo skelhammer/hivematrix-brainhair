@@ -40,24 +40,17 @@ def chat_interface():
     return render_template('chat.html', user=user)
 
 
+# Store for polling-based responses
+response_buffers = {}
+
 @app.route('/api/chat', methods=['POST'])
 @token_required
 def chat_message():
     """
-    Handle chat messages and stream response from Claude Code.
+    Handle chat messages using polling instead of SSE.
 
-    Request body:
-    {
-        "message": "user message",
-        "session_id": "session_id or null (creates new session)",
-        "ticket": "ticket number or null",
-        "client": "client name or null"
-    }
-
-    Response: Server-Sent Events stream
-    data: {"type": "chunk", "content": "response text"}
-    data: {"type": "command_approval", "data": {...}}
-    data: {"type": "done"}
+    Starts Claude Code in background and returns a response_id.
+    Client polls /api/chat/poll/<response_id> for updates.
     """
     logger = get_helm_logger()
 
@@ -81,64 +74,91 @@ def chat_message():
         if session_id:
             session = session_manager.get_session(session_id)
             if not session:
-                # Session expired or invalid, create new one
                 session_id = session_manager.create_session(user, context)
                 session = session_manager.get_session(session_id)
         else:
-            # Create new session
             session_id = session_manager.create_session(user, context)
             session = session_manager.get_session(session_id)
 
         if not session:
             return jsonify({'error': 'Failed to create session'}), 500
 
-        # Stream the response
-        def generate():
-            """Generator for SSE streaming."""
-            # Send session ID first
-            yield f'data: {json.dumps({"type": "session_id", "session_id": session_id})}\n\n'
+        # Generate unique response ID
+        response_id = str(uuid.uuid4())
 
+        # Initialize response buffer
+        response_buffers[response_id] = {
+            'chunks': [],
+            'done': False,
+            'error': None,
+            'session_id': session_id
+        }
+
+        # Start background thread to collect response
+        import threading
+        def collect_response():
             try:
-                # Stream chunks from session
+                logger.info(f"Starting to collect response for {response_id}")
+                chunk_count = 0
                 for chunk in session.send_message_stream(message):
-                    # Check if this is a special message (command approval, etc.)
+                    chunk_count += 1
                     try:
                         chunk_data = json.loads(chunk)
-                        if chunk_data.get('type') == 'command_approval_request':
-                            # Handle command approval
-                            cmd_data = chunk_data['data']
-                            cmd_request = create_command_request(
-                                cmd_data.get('command'),
-                                cmd_data.get('device_id'),
-                                cmd_data.get('reason')
-                            )
-                            yield f'data: {json.dumps({"type": "command_approval", "data": cmd_request})}\n\n'
-                            continue
+                        response_buffers[response_id]['chunks'].append(chunk_data)
+                        logger.debug(f"Added chunk {chunk_count} type={chunk_data.get('type')}")
                     except json.JSONDecodeError:
-                        pass
+                        response_buffers[response_id]['chunks'].append({'type': 'chunk', 'content': chunk})
+                        logger.debug(f"Added text chunk {chunk_count}")
 
-                    # Normal text chunk
-                    yield f'data: {json.dumps({"type": "chunk", "content": chunk})}\n\n'
-
-                # Send completion marker
-                yield f'data: {json.dumps({"type": "done"})}\n\n'
-
+                logger.info(f"Stream complete for {response_id}, collected {chunk_count} chunks")
+                response_buffers[response_id]['done'] = True
             except Exception as e:
-                logger.error(f"Error streaming response: {e}", exc_info=True)
-                yield f'data: {json.dumps({"type": "error", "error": str(e)})}\n\n'
+                logger.error(f"Error collecting response: {e}", exc_info=True)
+                response_buffers[response_id]['error'] = str(e)
+                response_buffers[response_id]['done'] = True
 
-        return Response(
-            stream_with_context(generate()),
-            mimetype='text/event-stream',
-            headers={
-                'Cache-Control': 'no-cache',
-                'X-Accel-Buffering': 'no'
-            }
-        )
+        thread = threading.Thread(target=collect_response, daemon=True)
+        thread.start()
+
+        return jsonify({
+            'response_id': response_id,
+            'session_id': session_id
+        })
 
     except Exception as e:
         logger.error(f"Chat error: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/chat/poll/<response_id>', methods=['GET'])
+@token_required
+def poll_response(response_id):
+    """Poll for new chunks from a running Claude Code response."""
+
+    if response_id not in response_buffers:
+        return jsonify({'error': 'Invalid response ID'}), 404
+
+    buffer = response_buffers[response_id]
+
+    # Get the offset parameter (how many chunks client already has)
+    offset = int(request.args.get('offset', 0))
+
+    # Return new chunks since offset
+    new_chunks = buffer['chunks'][offset:]
+
+    response = {
+        'chunks': new_chunks,
+        'offset': len(buffer['chunks']),
+        'done': buffer['done'],
+        'error': buffer['error'],
+        'session_id': buffer.get('session_id')
+    }
+
+    # Clean up buffer if done and client has received all chunks
+    if buffer['done'] and offset >= len(buffer['chunks']):
+        del response_buffers[response_id]
+
+    return jsonify(response)
 
 
 def build_context(ticket: Optional[str], client: Optional[str], user: str) -> Dict:

@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Brain Hair - AI Tech Assistant</title>
+    <!-- CSS is injected by Nexus proxy -->
+    <style>
+        /* Critical CSS to ensure typing indicator is hidden by default */
+        .typing-indicator {
+            display: none !important;
+        }
+        .typing-indicator.active {
+            display: flex !important;
+        }
+    </style>
     <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
 </head>
@@ -125,8 +135,19 @@
             if (streaming && role === 'assistant' && currentMessageElement) {
                 // Update existing streaming message
                 const contentDiv = currentMessageElement.querySelector('.message-content');
-                // Render markdown for assistant messages
+
+                // Preserve activity lines (they have the ⚙️ emoji)
+                const activityLines = Array.from(contentDiv.querySelectorAll('div'))
+                    .filter(div => div.textContent.startsWith('⚙️'));
+
+                // Render new markdown content
                 contentDiv.innerHTML = renderMarkdown(content);
+
+                // Re-add activity lines at the top
+                activityLines.forEach(line => {
+                    contentDiv.insertBefore(line, contentDiv.firstChild);
+                });
+
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
                 return currentMessageElement;
             }
@@ -184,8 +205,7 @@
             currentMessageContent = '';
 
             try {
-                // Use EventSource for Server-Sent Events streaming
-                // Note: EventSource doesn't support POST, so we'll use fetch with streaming
+                // Start Claude Code in background - get response_id
                 const response = await fetch(API_CHAT, {
                     method: 'POST',
                     headers: {
@@ -204,34 +224,40 @@
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
 
-                // Read the SSE stream
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
+                const data = await response.json();
+                const responseId = data.response_id;
+                sessionId = data.session_id;
 
-                while (true) {
-                    const {done, value} = await reader.read();
+                console.log('Response ID:', responseId, 'Session ID:', sessionId);
 
-                    if (done) break;
+                // Poll for chunks
+                let offset = 0;
+                let done = false;
 
-                    // Decode the chunk
-                    buffer += decoder.decode(value, {stream: true});
+                while (!done) {
+                    await new Promise(resolve => setTimeout(resolve, 500)); // Poll every 500ms
 
-                    // Process complete SSE messages (separated by \n\n)
-                    const messages = buffer.split('\n\n');
-                    buffer = messages.pop(); // Keep incomplete message in buffer
+                    // Use relative URL to preserve /brainhair prefix through proxy
+                    const pollResponse = await fetch(`api/chat/poll/${responseId}?offset=${offset}`, {
+                        credentials: 'same-origin'
+                    });
 
-                    for (const msg of messages) {
-                        if (!msg.trim() || !msg.startsWith('data: ')) continue;
+                    if (!pollResponse.ok) {
+                        throw new Error(`Poll failed: ${pollResponse.status}`);
+                    }
 
-                        const dataStr = msg.substring(6); // Remove 'data: ' prefix
+                    const pollData = await pollResponse.json();
 
-                        try {
-                            const data = JSON.parse(dataStr);
-                            handleSSEMessage(data);
-                        } catch (e) {
-                            console.error('Error parsing SSE message:', e, dataStr);
-                        }
+                    // Process new chunks
+                    for (const chunk of pollData.chunks) {
+                        handleChunkMessage(chunk);
+                    }
+
+                    offset = pollData.offset;
+                    done = pollData.done;
+
+                    if (pollData.error) {
+                        throw new Error(pollData.error);
                     }
                 }
 
@@ -246,25 +272,33 @@
             }
         }
 
-        function handleSSEMessage(data) {
+        function handleChunkMessage(data) {
             switch (data.type) {
-                case 'session_id':
-                    // Store session ID for reuse
-                    sessionId = data.session_id;
-                    console.log('Session ID:', sessionId);
-                    break;
-
                 case 'thinking':
-                    // Show what Claude is doing
-                    const typingDiv = document.getElementById('typing');
-                    typingDiv.querySelector('span').textContent = data.action || 'Claude is thinking';
-                    typingDiv.classList.add('active');
+                    // Show what Claude is doing as an activity message
+                    const activity = data.action || 'Claude is thinking';
+
+                    // If no current message, create one to hold activities
+                    if (!currentMessageElement) {
+                        currentMessageElement = addMessage('assistant', '', true);
+                    }
+
+                    // Add activity indicator to the message
+                    const contentDiv = currentMessageElement.querySelector('.message-content');
+                    const activityLine = document.createElement('div');
+                    activityLine.style.color = '#89b4fa';
+                    activityLine.style.fontStyle = 'italic';
+                    activityLine.style.fontSize = '0.9em';
+                    activityLine.style.marginBottom = '0.5rem';
+                    activityLine.textContent = '⚙️ ' + activity;
+                    contentDiv.appendChild(activityLine);
+
+                    // Scroll to bottom
+                    const messagesDiv = document.getElementById('messages');
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
                     break;
 
                 case 'chunk':
-                    // Hide typing indicator on first chunk
-                    document.getElementById('typing').classList.remove('active');
-
                     // Append to current message content
                     currentMessageContent += data.content;
 
@@ -277,23 +311,34 @@
                     showCommandApproval(data.data);
                     break;
 
-                case 'done':
-                    // Stream complete - hide typing indicator
-                    document.getElementById('typing').classList.remove('active');
-                    currentMessageElement = null;
-                    currentMessageContent = '';
-                    break;
+                case 'live_message': {
+                    // Live messages from Claude Code (stderr output)
+                    const liveMsg = data.content || 'Claude is working...';
 
-                case 'error':
-                    // Error occurred - hide typing indicator
-                    document.getElementById('typing').classList.remove('active');
-                    addMessage('assistant', `❌ Error: ${data.error}`);
-                    currentMessageElement = null;
-                    currentMessageContent = '';
+                    // If no current message, create one to hold live messages
+                    if (!currentMessageElement) {
+                        currentMessageElement = addMessage('assistant', '', true);
+                    }
+
+                    // Add live message indicator
+                    const liveContentDiv = currentMessageElement.querySelector('.message-content');
+                    const liveLine = document.createElement('div');
+                    liveLine.style.color = '#94e2d5';
+                    liveLine.style.fontStyle = 'italic';
+                    liveLine.style.fontSize = '0.85em';
+                    liveLine.style.marginBottom = '0.3rem';
+                    liveLine.style.opacity = '0.8';
+                    liveLine.textContent = '💬 ' + liveMsg;
+                    liveContentDiv.appendChild(liveLine);
+
+                    // Scroll to bottom
+                    const liveMsgDiv = document.getElementById('messages');
+                    liveMsgDiv.scrollTop = liveMsgDiv.scrollHeight;
                     break;
+                }
 
                 default:
-                    console.warn('Unknown SSE message type:', data.type);
+                    console.warn('Unknown chunk type:', data.type);
             }
         }
 

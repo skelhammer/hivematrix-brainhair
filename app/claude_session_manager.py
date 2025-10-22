@@ -117,86 +117,178 @@ class ClaudeSession:
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.STDOUT,  # Merge stderr into stdout for simplicity
                 env=self.env,
                 text=True,
-                bufsize=0,  # Unbuffered
-                universal_newlines=True
+                bufsize=1,  # Line buffered
             )
 
             response_text = ""
+            import time
+            last_output_time = time.time()
+            idle_timeout = 30  # seconds without output before we give up
+            self._last_stop_reason = None  # Track stop reason for tool_use detection
 
-            # Stream stdout line by line - now it's JSON events
+            # Stream output line by line
+            line_count = 0
+            self.logger.info(f"[STREAM] Starting to read from Claude Code stdout")
+
             for line in iter(process.stdout.readline, ''):
-                if not line or not line.strip():
+                line_count += 1
+                self.logger.debug(f"[STREAM] Line {line_count} received (length: {len(line)})")
+
+                # Check if process has terminated
+                poll_result = process.poll()
+                if poll_result is not None:
+                    self.logger.info(f"[STREAM] Process terminated with code {poll_result} after {line_count} lines")
                     break
+
+                # Check for idle timeout
+                idle_time = time.time() - last_output_time
+                if idle_time > idle_timeout:
+                    self.logger.warning(f"[STREAM] No output for {idle_timeout}s (idle: {idle_time:.1f}s), assuming process hung")
+                    process.kill()
+                    yield "\n\n[Claude Code appears to have hung - terminated]"
+                    break
+
+                if not line or not line.strip():
+                    self.logger.debug(f"[STREAM] Line {line_count} is empty, skipping")
+                    continue
+
+                line = line.strip()
+                last_output_time = time.time()  # Reset timeout on each line
+                self.logger.debug(f"[STREAM] Line {line_count} content: {line[:100]}...")
 
                 try:
                     # Parse the JSON event from Claude Code
                     event = json.loads(line)
                     event_type = event.get('type')
+                    self.logger.debug(f"[STREAM] Line {line_count} parsed as JSON, type: {event_type}")
 
-                    if event_type == 'assistant':
-                        # Assistant message with content
-                        message = event.get('message', {})
-                        content_blocks = message.get('content', [])
+                    # Unwrap stream_event wrapper
+                    if event_type == 'stream_event':
+                        inner_event = event.get('event', {})
+                        event_type = inner_event.get('type')
+                        event = inner_event
+                        self.logger.debug(f"[STREAM] Unwrapped stream_event to type: {event_type}")
 
-                        for block in content_blocks:
-                            block_type = block.get('type')
+                    # Handle content_block_delta for streaming text chunks
+                    if event_type == 'content_block_delta':
+                        delta = event.get('delta', {})
+                        delta_type = delta.get('type')
+                        self.logger.debug(f"[STREAM] content_block_delta, delta_type: {delta_type}")
 
-                            if block_type == 'text':
-                                # Text response from Claude
-                                text = block.get('text', '')
-                                response_text += text
-                                yield text
+                        if delta_type == 'text_delta':
+                            # Streaming text chunk
+                            text = delta.get('text', '')
+                            response_text += text
+                            self.logger.debug(f"[STREAM] Yielding text chunk: {repr(text[:50])}")
+                            yield text
 
-                            elif block_type == 'tool_use':
-                                # Claude is using a tool
-                                tool_name = block.get('name', 'unknown')
-                                tool_input = block.get('input', {})
+                    # Handle content_block_start for tool calls
+                    elif event_type == 'content_block_start':
+                        content_block = event.get('content_block', {})
+                        block_type = content_block.get('type')
+                        self.logger.info(f"[STREAM] content_block_start, block_type: {block_type}")
 
-                                if tool_name == 'Bash':
-                                    command = tool_input.get('command', '')[:150]
-                                    yield json.dumps({"type": "thinking", "action": f"Running: {command}"}) + "\n"
-                                else:
-                                    yield json.dumps({"type": "thinking", "action": f"Using {tool_name}"}) + "\n"
+                        if block_type == 'tool_use':
+                            tool_name = content_block.get('name', 'unknown')
+                            tool_id = content_block.get('id', '')
+                            self.logger.info(f"[STREAM] Tool use detected: {tool_name} (id: {tool_id})")
+                            yield json.dumps({"type": "thinking", "action": f"Using tool: {tool_name}"})
+
+                    # Skip assistant message - we already got the text from content_block_delta
+                    elif event_type == 'assistant':
+                        # This contains the full message but we already streamed it via deltas
+                        # Just use it to update our conversation history later
+                        self.logger.debug(f"[STREAM] Received assistant message (already streamed via deltas)")
+                        pass
+
+                    elif event_type == 'message_stop':
+                        # Message complete - but check if we're waiting for tool execution
+                        stop_reason = getattr(self, '_last_stop_reason', None)
+                        self.logger.info(f"[STREAM] Received message_stop event after {line_count} lines, stop_reason: {stop_reason}")
+
+                        # If stop_reason is tool_use, DON'T break - keep reading for tool output
+                        if stop_reason == 'tool_use':
+                            self.logger.info(f"[STREAM] Stop reason is tool_use, continuing to read tool execution output...")
+                            continue
+                        else:
+                            # Normal completion, stop reading
+                            break
 
                     elif event_type == 'result':
                         # Final result - message complete
+                        self.logger.info(f"[STREAM] Received result event after {line_count} lines")
                         break
 
                     elif event_type == 'system':
-                        # System initialization event
-                        pass
+                        # System initialization event - send as live message
+                        self.logger.debug(f"[STREAM] System event")
+                        yield json.dumps({"type": "live_message", "content": "Initializing Claude Code..."})
 
-                    elif event_type == 'stream_event':
-                        # Streaming event - usually partial updates
-                        # These come before the full assistant message
-                        pass
+                    elif event_type == 'message_start':
+                        # Message starting
+                        self.logger.debug(f"[STREAM] Message start event")
+                        yield json.dumps({"type": "live_message", "content": "Claude is responding..."})
 
                     elif event_type == 'user':
                         # User message echo
+                        self.logger.debug(f"[STREAM] User message echo")
                         pass
 
+                    elif event_type == 'content_block_stop':
+                        # Content block finished
+                        self.logger.debug(f"[STREAM] content_block_stop")
+                        pass
+
+                    elif event_type == 'message_delta':
+                        # Message metadata update - check for stop_reason
+                        delta = event.get('delta', {})
+                        stop_reason = delta.get('stop_reason')
+                        self.logger.debug(f"[STREAM] message_delta, stop_reason: {stop_reason}")
+
+                        # Store stop_reason for later use
+                        if stop_reason:
+                            self._last_stop_reason = stop_reason
+
                     else:
-                        # Unknown event, log it for debugging
-                        self.logger.debug(f"Unknown event type: {event_type}")
+                        # Log unknown events for debugging
+                        self.logger.info(f"[STREAM] Unknown event type: {event_type}, full data: {json.dumps(event)[:200]}")
 
-                except json.JSONDecodeError:
-                    # Not JSON, treat as plain text
-                    response_text += line
-                    yield line
+                except json.JSONDecodeError as e:
+                    # Not JSON - could be stderr output or bash tool output
+                    self.logger.warning(f"[STREAM] Line {line_count} is NOT JSON: {line[:200]}")
+                    self.logger.warning(f"[STREAM] JSONDecodeError: {e}")
+                    yield json.dumps({"type": "live_message", "content": line})
+                except Exception as e:
+                    self.logger.error(f"[STREAM] Unexpected error processing line {line_count}: {e}", exc_info=True)
+                    self.logger.error(f"[STREAM] Line content was: {line[:200]}")
 
-            # Wait for process to complete
-            process.wait(timeout=120)
+            self.logger.info(f"[STREAM] Exited read loop after {line_count} lines, response_text length: {len(response_text)}")
+
+            # Process should already be done, but wait just in case
+            if process.poll() is None:
+                self.logger.warning("[STREAM] Process still running after loop exit, waiting...")
+                try:
+                    process.wait(timeout=10)
+                    self.logger.info(f"[STREAM] Process finished with code {process.returncode}")
+                except subprocess.TimeoutExpired:
+                    self.logger.error("[STREAM] Process wait timed out after 10s, killing process")
+                    process.kill()
+                    process.wait()
+            else:
+                self.logger.info(f"[STREAM] Process already exited with code {process.returncode}")
 
             # Check for errors
             if process.returncode != 0:
-                stderr = process.stderr.read()
-                self.logger.error(f"Claude Code error: {stderr}")
+                self.logger.error(f"[STREAM] Claude Code exited with non-zero code {process.returncode}")
                 yield f"\n\n[Error: Claude Code exited with code {process.returncode}]"
+            else:
+                self.logger.info(f"[STREAM] Claude Code completed successfully")
 
             # Add response to history
+            self.logger.info(f"[STREAM] Adding response to history (length: {len(response_text.strip())} chars)")
             self.conversation_history.append({"role": "assistant", "content": response_text.strip()})
 
         except subprocess.TimeoutExpired:
