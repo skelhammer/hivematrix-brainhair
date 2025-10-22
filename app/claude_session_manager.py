@@ -103,6 +103,7 @@ class ClaudeSession:
                 claude_bin,
                 '--model', 'claude-sonnet-4-5',
                 '--dangerously-skip-permissions',  # Bypass all permission checks
+                '--verbose',  # Required for --output-format=stream-json
                 '--print',  # Required for --output-format
                 '--output-format', 'stream-json',  # Get real-time streaming JSON
                 '--include-partial-messages',  # Include partial chunks
