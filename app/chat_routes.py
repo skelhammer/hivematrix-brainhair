@@ -97,6 +97,9 @@ def chat_message():
 
         # Start background thread to collect response
         import threading
+        from flask import copy_current_request_context
+
+        @copy_current_request_context
         def collect_response():
             try:
                 logger.info(f"Starting to collect response for {response_id}")
