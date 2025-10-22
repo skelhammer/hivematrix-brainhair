@@ -116,16 +116,24 @@ class ClaudeSession:
                 stderr=subprocess.PIPE,
                 env=self.env,
                 text=True,
-                bufsize=1,
+                bufsize=0,  # Unbuffered
                 universal_newlines=True
             )
 
             response_text = ""
+            in_tool_use = False
 
             # Stream stdout line by line
             for line in iter(process.stdout.readline, ''):
                 if not line:
                     break
+
+                # Detect tool usage patterns and emit thinking messages
+                if 'bash' in line.lower() or 'running' in line.lower() or 'cd /' in line:
+                    # Claude is using a tool
+                    action = line.strip()[:80]  # First 80 chars
+                    yield json.dumps({"type": "thinking", "action": f"Running: {action}"}) + "\n"
+                    in_tool_use = True
 
                 # Don't filter Claude's output - only filter data going into the model
                 response_text += line

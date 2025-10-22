@@ -254,6 +254,13 @@
                     console.log('Session ID:', sessionId);
                     break;
 
+                case 'thinking':
+                    // Show what Claude is doing
+                    const typingDiv = document.getElementById('typing');
+                    typingDiv.querySelector('span').textContent = data.action || 'Claude is thinking';
+                    typingDiv.classList.add('active');
+                    break;
+
                 case 'chunk':
                     // Hide typing indicator on first chunk
                     document.getElementById('typing').classList.remove('active');
@@ -271,13 +278,15 @@
                     break;
 
                 case 'done':
-                    // Stream complete
+                    // Stream complete - hide typing indicator
+                    document.getElementById('typing').classList.remove('active');
                     currentMessageElement = null;
                     currentMessageContent = '';
                     break;
 
                 case 'error':
-                    // Error occurred
+                    // Error occurred - hide typing indicator
+                    document.getElementById('typing').classList.remove('active');
                     addMessage('assistant', `❌ Error: ${data.error}`);
                     currentMessageElement = null;
                     currentMessageContent = '';
