@@ -14,10 +14,9 @@ import uuid
 import os
 from datetime import datetime
 from typing import Dict, Optional, Callable
+from flask import current_app
 from .helm_logger import get_helm_logger
 from .presidio_filter import filter_data
-from extensions import db
-from models import ChatSession as ChatSessionModel, ChatMessage
 
 
 class ClaudeSession:
@@ -37,6 +36,10 @@ class ClaudeSession:
             context: Context dict with ticket, client, etc.
             db_session_id: Optional database session ID to resume existing session
         """
+        # Import inside method to ensure app context is available
+        from extensions import db
+        from models import ChatSession as ChatSessionModel, ChatMessage
+
         self.session_id = session_id
         self.user = user
         self.context = context
@@ -120,6 +123,10 @@ class ClaudeSession:
             Response chunks
         """
         try:
+            # Import inside method to ensure app context is available
+            from extensions import db
+            from models import ChatMessage
+
             # Add message to conversation history
             self.conversation_history.append({"role": "user", "content": message})
 
