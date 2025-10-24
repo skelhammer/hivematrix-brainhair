@@ -67,6 +67,34 @@ source pyenv/bin/activate
 python ai_tools/list_companies.py [limit]
 ```
 
+### Billing Management
+
+**IMPORTANT**: Use this simple script for billing lookups - it handles everything automatically!
+
+**Get billing for a company:**
+```bash
+cd /home/david/Work/hivematrix/hivematrix-brainhair
+source pyenv/bin/activate
+python ai_tools/get_billing.py "Company Name"
+```
+
+Examples:
+```bash
+# By company name
+python ai_tools/get_billing.py "Example Company"
+
+# By account number
+python ai_tools/get_billing.py 123456
+```
+
+This script:
+- Finds the company by name or account number
+- Gets authentication tokens automatically
+- Retrieves billing data from Ledger
+- Formats everything nicely
+
+**THESE BILLING SCRIPTS ARE PRE-APPROVED** - run them immediately when users ask about billing!
+
 ### Knowledge Base
 
 **Search knowledge:**
