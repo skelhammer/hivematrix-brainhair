@@ -536,6 +536,639 @@ def datto_device(device_id: str):
         return jsonify({'error': f'Error calling Datto: {str(e)}'}), 500
 
 
+# ==================== Ledger Billing Integration ====================
+
+@app.route('/api/ledger/billing/<account_number>', methods=['GET'])
+@token_required
+def ledger_billing(account_number: str):
+    """
+    Get billing data for a specific company from Ledger.
+
+    Query params:
+        year: Billing year (optional)
+        month: Billing month (optional)
+        filter: Filter type ("phi", "cjis", or none for PHI)
+    """
+    logger = get_helm_logger()
+
+    from .ledger_client import get_ledger_client
+    ledger = get_ledger_client()
+
+    year = request.args.get('year', type=int)
+    month = request.args.get('month', type=int)
+    filter_type = request.args.get('filter', 'phi')
+
+    try:
+        data = ledger.get_billing_for_client(account_number, year, month)
+
+        if 'error' in data:
+            logger.error(f"Ledger billing error for {account_number}: {data['error']}")
+            return jsonify(data), 500
+
+        # Apply filtering
+        filtered_data = apply_filter(data, filter_type)
+
+        logger.info(f"Retrieved billing data for {account_number}")
+        return jsonify({
+            'account_number': account_number,
+            'filter_applied': filter_type,
+            'data': filtered_data
+        })
+
+    except Exception as e:
+        logger.error(f"Error fetching billing data: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ledger/dashboard', methods=['GET'])
+@token_required
+def ledger_dashboard():
+    """
+    Get billing dashboard for all companies.
+
+    Query params:
+        year: Billing year (optional)
+        month: Billing month (optional)
+        filter: Filter type ("phi", "cjis", or none for PHI)
+    """
+    logger = get_helm_logger()
+
+    from .ledger_client import get_ledger_client
+    ledger = get_ledger_client()
+
+    year = request.args.get('year', type=int)
+    month = request.args.get('month', type=int)
+    filter_type = request.args.get('filter', 'phi')
+
+    try:
+        data = ledger.get_billing_dashboard(year, month)
+
+        if 'error' in data:
+            return jsonify(data), 500
+
+        # Apply filtering
+        filtered_data = apply_filter(data, filter_type)
+
+        logger.info("Retrieved billing dashboard")
+        return jsonify({
+            'filter_applied': filter_type,
+            'data': filtered_data
+        })
+
+    except Exception as e:
+        logger.error(f"Error fetching dashboard: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ledger/plans', methods=['GET'])
+@token_required
+def ledger_plans():
+    """Get all available billing plans from Ledger."""
+    logger = get_helm_logger()
+
+    from .ledger_client import get_ledger_client
+    ledger = get_ledger_client()
+
+    try:
+        plans = ledger.get_billing_plans()
+        logger.info(f"Retrieved {len(plans)} billing plans")
+        return jsonify({'plans': plans})
+
+    except Exception as e:
+        logger.error(f"Error fetching plans: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ledger/overrides/client/<account_number>', methods=['GET'])
+@token_required
+def get_client_overrides(account_number: str):
+    """Get billing overrides for a specific client."""
+    logger = get_helm_logger()
+
+    from .ledger_client import get_ledger_client
+    ledger = get_ledger_client()
+
+    try:
+        data = ledger.get_client_overrides(account_number)
+        logger.info(f"Retrieved overrides for {account_number}")
+        return jsonify(data)
+
+    except Exception as e:
+        logger.error(f"Error fetching overrides: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ledger/overrides/client/<account_number>', methods=['PUT', 'POST'])
+@token_required
+def set_client_overrides(account_number: str):
+    """
+    Set or update billing overrides for a client.
+
+    Request body (all fields optional):
+    {
+        "billing_plan": "Premium Support",
+        "support_level": "All Inclusive",
+        "per_user_cost": 15.00,
+        "per_workstation_cost": 75.00,
+        "per_server_cost": 150.00,
+        "per_vm_cost": 100.00,
+        "per_switch_cost": 50.00,
+        "per_firewall_cost": 75.00,
+        "per_hour_ticket_cost": 150.00,
+        "prepaid_hours_monthly": 4.0,
+        "prepaid_hours_yearly": 48.0
+    }
+    """
+    logger = get_helm_logger()
+
+    from .ledger_client import get_ledger_client
+    ledger = get_ledger_client()
+
+    data = request.get_json()
+
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    try:
+        result = ledger.set_client_override(account_number, data)
+        logger.info(f"Updated overrides for {account_number}")
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Error setting overrides: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ledger/overrides/client/<account_number>', methods=['DELETE'])
+@token_required
+def delete_client_overrides_route(account_number: str):
+    """Remove all billing overrides for a client."""
+    logger = get_helm_logger()
+
+    from .ledger_client import get_ledger_client
+    ledger = get_ledger_client()
+
+    try:
+        result = ledger.delete_client_overrides(account_number)
+        logger.info(f"Deleted overrides for {account_number}")
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Error deleting overrides: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ledger/manual-assets/<account_number>', methods=['GET'])
+@token_required
+def get_manual_assets(account_number: str):
+    """Get manual assets for a company."""
+    from .ledger_client import get_ledger_client
+    ledger = get_ledger_client()
+
+    try:
+        assets = ledger.get_manual_assets(account_number)
+        return jsonify({'manual_assets': assets})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ledger/manual-assets/<account_number>', methods=['POST'])
+@token_required
+def add_manual_asset(account_number: str):
+    """
+    Add a manual asset for a company.
+
+    Request body:
+    {
+        "hostname": "server01",
+        "billing_type": "Server",
+        "custom_cost": 150.00,  // optional
+        "notes": "Legacy server"  // optional
+    }
+    """
+    from .ledger_client import get_ledger_client
+    ledger = get_ledger_client()
+
+    data = request.get_json()
+
+    if not data or 'hostname' not in data or 'billing_type' not in data:
+        return jsonify({'error': 'hostname and billing_type required'}), 400
+
+    try:
+        result = ledger.add_manual_asset(
+            account_number,
+            data['hostname'],
+            data['billing_type'],
+            data.get('custom_cost'),
+            data.get('notes')
+        )
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ledger/manual-assets/<account_number>/<int:asset_id>', methods=['DELETE'])
+@token_required
+def delete_manual_asset(account_number: str, asset_id: int):
+    """Delete a manual asset."""
+    from .ledger_client import get_ledger_client
+    ledger = get_ledger_client()
+
+    try:
+        result = ledger.delete_manual_asset(account_number, asset_id)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ledger/manual-users/<account_number>', methods=['GET'])
+@token_required
+def get_manual_users(account_number: str):
+    """Get manual users for a company."""
+    from .ledger_client import get_ledger_client
+    ledger = get_ledger_client()
+
+    try:
+        users = ledger.get_manual_users(account_number)
+        return jsonify({'manual_users': users})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ledger/manual-users/<account_number>', methods=['POST'])
+@token_required
+def add_manual_user(account_number: str):
+    """
+    Add a manual user for a company.
+
+    Request body:
+    {
+        "full_name": "John Doe",
+        "billing_type": "Paid",
+        "custom_cost": 15.00,  // optional
+        "notes": "Executive user"  // optional
+    }
+    """
+    from .ledger_client import get_ledger_client
+    ledger = get_ledger_client()
+
+    data = request.get_json()
+
+    if not data or 'full_name' not in data or 'billing_type' not in data:
+        return jsonify({'error': 'full_name and billing_type required'}), 400
+
+    try:
+        result = ledger.add_manual_user(
+            account_number,
+            data['full_name'],
+            data['billing_type'],
+            data.get('custom_cost'),
+            data.get('notes')
+        )
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ledger/manual-users/<account_number>/<int:user_id>', methods=['DELETE'])
+@token_required
+def delete_manual_user(account_number: str, user_id: int):
+    """Delete a manual user."""
+    from .ledger_client import get_ledger_client
+    ledger = get_ledger_client()
+
+    try:
+        result = ledger.delete_manual_user(account_number, user_id)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ledger/line-items/<account_number>', methods=['GET'])
+@token_required
+def get_line_items(account_number: str):
+    """Get custom line items for a company."""
+    from .ledger_client import get_ledger_client
+    ledger = get_ledger_client()
+
+    try:
+        items = ledger.get_custom_line_items(account_number)
+        return jsonify({'line_items': items})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ledger/line-items/<account_number>', methods=['POST'])
+@token_required
+def add_line_item(account_number: str):
+    """
+    Add a custom line item for a company.
+
+    Request body:
+    {
+        "name": "Office 365 Licenses",
+        "description": "Monthly subscription",  // optional
+        "monthly_fee": 500.00,  // optional - for recurring monthly
+        "one_off_fee": 1000.00,  // optional - for one-time charge
+        "one_off_year": 2025,  // required if one_off_fee set
+        "one_off_month": 10,  // required if one_off_fee set
+        "yearly_fee": 5000.00,  // optional - for annual charge
+        "yearly_bill_month": 1  // required if yearly_fee set (1-12)
+    }
+    """
+    from .ledger_client import get_ledger_client
+    ledger = get_ledger_client()
+
+    data = request.get_json()
+
+    if not data or 'name' not in data:
+        return jsonify({'error': 'name required'}), 400
+
+    try:
+        result = ledger.add_custom_line_item(account_number, **data)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ledger/line-items/<account_number>/<int:item_id>', methods=['PUT'])
+@token_required
+def update_line_item(account_number: str, item_id: int):
+    """Update a custom line item (same fields as POST)."""
+    from .ledger_client import get_ledger_client
+    ledger = get_ledger_client()
+
+    data = request.get_json()
+
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    try:
+        result = ledger.update_custom_line_item(account_number, item_id, **data)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ledger/line-items/<account_number>/<int:item_id>', methods=['DELETE'])
+@token_required
+def delete_line_item(account_number: str, item_id: int):
+    """Delete a custom line item."""
+    from .ledger_client import get_ledger_client
+    ledger = get_ledger_client()
+
+    try:
+        result = ledger.delete_custom_line_item(account_number, item_id)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ledger/invoice/<account_number>/summary', methods=['GET'])
+@token_required
+def get_invoice_summary(account_number: str):
+    """
+    Get invoice summary for a specific period.
+
+    Query params:
+        year: Invoice year (required)
+        month: Invoice month (required)
+    """
+    from .ledger_client import get_ledger_client
+    ledger = get_ledger_client()
+
+    year = request.args.get('year', type=int)
+    month = request.args.get('month', type=int)
+
+    if not year or not month:
+        return jsonify({'error': 'year and month required'}), 400
+
+    try:
+        result = ledger.get_invoice_summary(account_number, year, month)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ledger/bill/accept', methods=['POST'])
+@token_required
+def accept_bill():
+    """
+    Accept and archive a bill.
+
+    Request body:
+    {
+        "account_number": "123456",
+        "year": 2025,
+        "month": 10,
+        "notes": "Approved by manager"  // optional
+    }
+    """
+    from .ledger_client import get_ledger_client
+    ledger = get_ledger_client()
+
+    data = request.get_json()
+
+    if not data or 'account_number' not in data or 'year' not in data or 'month' not in data:
+        return jsonify({'error': 'account_number, year, and month required'}), 400
+
+    try:
+        result = ledger.accept_bill(
+            data['account_number'],
+            data['year'],
+            data['month'],
+            data.get('notes')
+        )
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ==================== Contract Alignment Tool ====================
+
+@app.route('/api/contract/analyze', methods=['POST'])
+@token_required
+def analyze_contract():
+    """
+    Analyze a contract and prepare for alignment.
+
+    Request body:
+    {
+        "account_number": "123456",
+        "contract_text": "Full contract text or excerpts..."
+    }
+
+    Returns current settings and recommendations.
+    """
+    logger = get_helm_logger()
+
+    from .contract_alignment import get_contract_alignment_tool
+    tool = get_contract_alignment_tool()
+
+    data = request.get_json()
+
+    if not data or 'account_number' not in data or 'contract_text' not in data:
+        return jsonify({'error': 'account_number and contract_text required'}), 400
+
+    try:
+        result = tool.analyze_contract(data['contract_text'], data['account_number'])
+        logger.info(f"Analyzed contract for {data['account_number']}")
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error analyzing contract: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/contract/current-settings/<account_number>', methods=['GET'])
+@token_required
+def get_current_billing_settings(account_number: str):
+    """
+    Get comprehensive current billing settings for a company.
+
+    Includes billing data, overrides, manual items, line items, etc.
+    """
+    logger = get_helm_logger()
+
+    from .contract_alignment import get_contract_alignment_tool
+    tool = get_contract_alignment_tool()
+
+    try:
+        result = tool.get_current_settings(account_number)
+        logger.info(f"Retrieved current settings for {account_number}")
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error getting settings: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/contract/compare', methods=['POST'])
+@token_required
+def compare_contract_to_settings():
+    """
+    Compare extracted contract terms with current billing settings.
+
+    Request body:
+    {
+        "account_number": "123456",
+        "contract_terms": {
+            "billing_method": "per_user",
+            "per_user_rate": 15.00,
+            "hourly_rate": 150.00,
+            "prepaid_hours_monthly": 4.0,
+            "support_level": "All Inclusive"
+        }
+    }
+
+    Returns comparison report with discrepancies and recommendations.
+    """
+    logger = get_helm_logger()
+
+    from .contract_alignment import get_contract_alignment_tool
+    tool = get_contract_alignment_tool()
+
+    data = request.get_json()
+
+    if not data or 'account_number' not in data or 'contract_terms' not in data:
+        return jsonify({'error': 'account_number and contract_terms required'}), 400
+
+    try:
+        result = tool.compare_contract_to_settings(data['account_number'], data['contract_terms'])
+        logger.info(f"Compared contract terms for {data['account_number']}")
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error comparing terms: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/contract/align', methods=['POST'])
+@token_required
+def align_billing_settings():
+    """
+    Align billing settings with contract terms.
+
+    Request body:
+    {
+        "account_number": "123456",
+        "adjustments": {
+            "per_user_cost": 15.00,
+            "per_hour_ticket_cost": 150.00,
+            "prepaid_hours_monthly": 4.0,
+            "support_level": "All Inclusive",
+            "add_line_items": [
+                {
+                    "name": "Flat Fee Adjustment",
+                    "monthly_fee": 1000.00
+                }
+            ]
+        },
+        "dry_run": true  // Set to false to actually apply changes
+    }
+
+    Returns results of alignment operation.
+    """
+    logger = get_helm_logger()
+
+    from .contract_alignment import get_contract_alignment_tool
+    tool = get_contract_alignment_tool()
+
+    data = request.get_json()
+
+    if not data or 'account_number' not in data or 'adjustments' not in data:
+        return jsonify({'error': 'account_number and adjustments required'}), 400
+
+    dry_run = data.get('dry_run', True)
+
+    try:
+        result = tool.align_settings(data['account_number'], data['adjustments'], dry_run)
+
+        if not dry_run:
+            logger.info(f"Applied alignment for {data['account_number']}")
+        else:
+            logger.info(f"Dry run alignment for {data['account_number']}")
+
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error aligning settings: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/contract/verify', methods=['POST'])
+@token_required
+def verify_alignment():
+    """
+    Verify that billing settings match contract terms.
+
+    Request body:
+    {
+        "account_number": "123456",
+        "contract_terms": {
+            "per_user_rate": 15.00,
+            "hourly_rate": 150.00,
+            ...
+        }
+    }
+
+    Returns verification report.
+    """
+    logger = get_helm_logger()
+
+    from .contract_alignment import get_contract_alignment_tool
+    tool = get_contract_alignment_tool()
+
+    data = request.get_json()
+
+    if not data or 'account_number' not in data or 'contract_terms' not in data:
+        return jsonify({'error': 'account_number and contract_terms required'}), 400
+
+    try:
+        result = tool.verify_alignment(data['account_number'], data['contract_terms'])
+        logger.info(f"Verified alignment for {data['account_number']}")
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error verifying alignment: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 # ==================== Utility Endpoints ====================
 
 @app.route('/api/health', methods=['GET'])
@@ -574,6 +1207,24 @@ def list_endpoints():
         'datto': {
             '/api/datto/devices': 'List Datto devices',
             '/api/datto/device/<id>': 'Get specific device'
+        },
+        'ledger': {
+            '/api/ledger/billing/<account_number>': 'Get billing data for company',
+            '/api/ledger/dashboard': 'Get billing dashboard for all companies',
+            '/api/ledger/plans': 'List all billing plans',
+            '/api/ledger/overrides/client/<account_number>': 'Get/set/delete client billing overrides',
+            '/api/ledger/manual-assets/<account_number>': 'Get/add manual assets',
+            '/api/ledger/manual-users/<account_number>': 'Get/add manual users',
+            '/api/ledger/line-items/<account_number>': 'Get/add/update/delete custom line items',
+            '/api/ledger/invoice/<account_number>/summary': 'Get invoice summary',
+            '/api/ledger/bill/accept': 'Accept and archive a bill'
+        },
+        'contract_alignment': {
+            '/api/contract/analyze': 'Analyze a contract and load current settings',
+            '/api/contract/current-settings/<account_number>': 'Get comprehensive current billing settings',
+            '/api/contract/compare': 'Compare contract terms with current settings',
+            '/api/contract/align': 'Align billing settings to match contract (dry_run supported)',
+            '/api/contract/verify': 'Verify alignment between contract and settings'
         },
         'utility': {
             '/api/health': 'Health check',
