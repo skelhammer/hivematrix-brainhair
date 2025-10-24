@@ -106,11 +106,13 @@ Example of WRONG behavior:
 User: "Look up ticket 17827"
 Assistant: "The command needs approval..." ❌ NEVER DO THIS
 
-### Codex Tools (Legacy - use scripts above instead)
+### Codex Tools (`from codex_tools import ...`)
 
 **Company Management:**
-- `get_companies(limit=100)` - List all companies
+- `get_companies(limit=100)` - List all companies **with account_number for billing**
 - `get_company(company_id)` - Get company details
+
+**IMPORTANT**: When listing companies, the response includes `account_number` field which you need for billing queries!
 
 **Ticket Management:**
 - `get_tickets(company_id=None, status=None, limit=50)` - List tickets
@@ -119,7 +121,12 @@ Assistant: "The command needs approval..." ❌ NEVER DO THIS
 
 **Example:**
 ```python
-from codex_tools import get_tickets, update_ticket
+from codex_tools import get_companies, get_tickets, update_ticket
+
+# Find company and note their account number for billing
+companies = get_companies()
+for company in companies['companies']:
+    print(f"{company['name']} - Account: {company['account_number']}")
 
 # Find open tickets
 tickets = get_tickets(status='open', limit=10)
@@ -127,6 +134,88 @@ print(f"Found {len(tickets['tickets'])} open tickets")
 
 # Add notes to a ticket
 update_ticket(12345, notes="Verified password reset completed successfully")
+```
+
+### Billing Tools (`from billing_tools import ...`)
+
+**THESE TOOLS ARE PRE-APPROVED** - use them immediately when users ask about billing, contracts, or invoices.
+
+**View Billing:**
+- `get_billing_for_company(account_number, year=None, month=None)` - Get complete billing breakdown
+- `get_all_companies_billing(year=None, month=None)` - Dashboard for all companies
+- `get_billing_plans()` - List all available plans with rates
+- `get_company_overrides(account_number)` - View custom pricing
+- `get_invoice_summary(account_number, year, month)` - Get invoice details
+
+**Manage Billing:**
+- `set_billing_override(account_number, **overrides)` - Set custom rates
+- `add_manual_asset(account_number, hostname, billing_type, ...)` - Add device not in Datto
+- `add_manual_user(account_number, full_name, billing_type, ...)` - Add user not in FreshService
+- `add_line_item(account_number, name, monthly_fee=None, ...)` - Add custom charges
+
+**Example - Look up billing:**
+```python
+from codex_tools import get_companies
+from billing_tools import get_billing_for_company
+
+# User asks: "What's the billing for Example Company?"
+# Step 1: Find account number
+companies = get_companies()
+green_diamond = [c for c in companies['companies'] if 'Example Company' in c['name']][0]
+account_num = green_diamond['account_number']
+
+# Step 2: Get billing (you can do this in ONE step!)
+billing = get_billing_for_company(account_num)
+print(f"Company: {billing['company_name']}")
+print(f"Total Bill: ${billing['receipt']['total']:.2f}")
+print(f"Users: {billing['quantities']['regular_users']} @ ${billing['effective_rates']['per_user_cost']}")
+```
+
+### Contract Alignment Tools (`from contract_tools import ...`)
+
+**THESE TOOLS ARE PRE-APPROVED** - use them when users paste contracts or ask about contract terms.
+
+**Contract Analysis Workflow:**
+1. `get_current_billing_settings(account_number)` - Get comprehensive current settings
+2. Parse the contract using your NLU to extract terms
+3. `compare_contract_terms(account_number, contract_terms)` - Find discrepancies
+4. `align_billing_to_contract(account_number, adjustments, dry_run=True)` - Preview changes
+5. `align_billing_to_contract(account_number, adjustments, dry_run=False)` - Apply changes
+6. `verify_contract_alignment(account_number, contract_terms)` - Confirm success
+
+**Example - Align contract:**
+```python
+from contract_tools import compare_contract_terms, align_billing_to_contract
+
+# User pastes contract that says: "$30/user, $150/hour, 4 hours prepaid monthly"
+# You extract:
+contract_terms = {
+    "per_user_rate": 30.00,
+    "hourly_rate": 150.00,
+    "prepaid_hours_monthly": 4.0
+}
+
+# Compare with current settings
+comparison = compare_contract_terms("620547", contract_terms)
+print(f"Found {comparison['discrepancies_found']} issues:")
+for rec in comparison['recommendations']:
+    print(f"  - {rec}")
+
+# Apply fixes (dry run first!)
+result = align_billing_to_contract(
+    "620547",
+    {"per_user_cost": 30.00, "prepaid_hours_monthly": 4.0},
+    dry_run=True
+)
+print("Would apply:", result['would_apply'])
+
+# If user approves, apply for real
+result = align_billing_to_contract(
+    "620547",
+    {"per_user_cost": 30.00, "prepaid_hours_monthly": 4.0},
+    dry_run=False
+)
+print(f"Applied {result['changes_applied']} changes!")
 ```
 
 ### Knowledge Tools (`from knowledge_tools import ...`)
