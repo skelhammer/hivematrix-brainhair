@@ -130,19 +130,19 @@ def add_line_item(account_number, name, monthly_fee, description=""):
     try:
         # Check if line item already exists
         response = requests.get(
-            f"{LEDGER_URL}/api/line-items/{account_number}",
+            f"{LEDGER_URL}/api/overrides/line-items/{account_number}",
             headers=headers,
             timeout=5
         )
 
         if response.status_code == 200:
-            existing_items = response.json()
+            existing_items = response.json().get('line_items', [])
             for item in existing_items:
                 if item.get('name') == name:
                     print(f"Line item '{name}' already exists, updating...")
                     # Update existing
                     response = requests.put(
-                        f"{LEDGER_URL}/api/line-items/{item['id']}",
+                        f"{LEDGER_URL}/api/overrides/line-items/{account_number}/{item['id']}",
                         json={
                             'monthly_fee': monthly_fee,
                             'description': description
@@ -154,13 +154,11 @@ def add_line_item(account_number, name, monthly_fee, description=""):
 
         # Create new line item
         response = requests.post(
-            f"{LEDGER_URL}/api/line-items",
+            f"{LEDGER_URL}/api/overrides/line-items/{account_number}",
             json={
-                'account_number': account_number,
                 'name': name,
                 'monthly_fee': monthly_fee,
-                'description': description,
-                'recurring': True
+                'description': description
             },
             headers=headers,
             timeout=5

@@ -236,9 +236,9 @@ Onboarding Fee (ONE-TIME)               1      $720      $720  ← IGNORE!
    - If workstations aren't mentioned, set to $0 (included in user cost)
 
 2. **Fixed Line Items** - Monthly charges NOT based on quantities:
-   - "Network Management 4 @ $50" but described as fixed → Add line item at $200/month
-   - "Microsoft 365 licenses $800/month" → Add line item at $800/month
-   - These don't scale with user/device counts
+   - "Network Management 4 @ $50" but described as fixed → Add $200/month line item
+   - "Microsoft 365 licenses $800/month" → Add $800/month line item
+   - These are fixed monthly charges regardless of user/device counts
 
 3. **One-Time Fees** - COMPLETELY IGNORE:
    - "Onboarding Fee $720" → SKIP (not recurring)
