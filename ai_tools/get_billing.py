@@ -132,6 +132,16 @@ def format_billing(billing_data):
     vm_rate = rates.get('per_vm_cost', 0)
     output.append(f"VMs:          {vm_count:3d} @ ${vm_rate:6.2f}")
 
+    # Switches
+    switch_count = quantities.get('switch', 0)
+    switch_rate = rates.get('per_switch_cost', 0)
+    output.append(f"Switches:     {switch_count:3d} @ ${switch_rate:6.2f}")
+
+    # Firewalls
+    firewall_count = quantities.get('firewall', 0)
+    firewall_rate = rates.get('per_firewall_cost', 0)
+    output.append(f"Firewalls:    {firewall_count:3d} @ ${firewall_rate:6.2f}")
+
     # Total assets
     asset_total = receipt.get('total_asset_charges', 0)
     output.append(f"Asset Total:                    ${asset_total:8.2f}")
@@ -147,6 +157,20 @@ def format_billing(billing_data):
     if backup_total > 0:
         output.append(f"Backup:                          ${backup_total:8.2f}")
 
+    # Line items (from receipt data)
+    line_items = receipt.get('billed_line_items', [])
+    line_item_total = receipt.get('total_line_item_charges', 0)
+
+    if line_items and line_item_total > 0:
+        output.append("\n" + "-" * 70)
+        output.append("LINE ITEMS (Recurring):")
+        output.append("-" * 70)
+        for item in line_items:
+            cost = item.get('cost', 0)
+            item_type = item.get('type', 'monthly')
+            output.append(f"{item.get('name', 'Unknown'):30s} ${cost:8.2f} ({item_type})")
+        output.append(f"{'Line Items Total:':30s} ${line_item_total:8.2f}")
+
     # Plan info
     output.append("\n" + "-" * 70)
     output.append("PLAN DETAILS:")
@@ -158,6 +182,26 @@ def format_billing(billing_data):
     prepaid = rates.get('prepaid_hours_monthly', 0)
     if prepaid > 0:
         output.append(f"Prepaid Hours: {prepaid:.1f} hours/month")
+
+    # Plan features
+    plan_features = billing_data.get('plan_features', {})
+    feature_override_status = billing_data.get('feature_override_status', {})
+
+    if plan_features and any(v != 'Not Included' for v in plan_features.values()):
+        output.append("\n" + "-" * 70)
+        output.append("INCLUDED FEATURES:")
+        output.append("-" * 70)
+        for feature, value in plan_features.items():
+            if value and value != 'Not Included':
+                feature_name = feature.replace('_', ' ').title()
+                # Mark overridden features with an asterisk
+                override_marker = " *" if feature_override_status.get(feature, False) else ""
+                output.append(f"{feature_name:20s} {value}{override_marker}")
+
+        # Add legend if any features are overridden
+        if any(feature_override_status.values()):
+            output.append("")
+            output.append("* = Overridden in Ledger (differs from Codex plan default)")
 
     output.append("=" * 70)
 

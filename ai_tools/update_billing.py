@@ -203,8 +203,17 @@ def main():
     parser.add_argument('--per-workstation', type=float, help='Cost per workstation per month')
     parser.add_argument('--per-server', type=float, help='Cost per server per month')
     parser.add_argument('--per-vm', type=float, help='Cost per VM per month')
+    parser.add_argument('--per-switch', type=float, help='Cost per switch per month')
+    parser.add_argument('--per-firewall', type=float, help='Cost per firewall per month')
     parser.add_argument('--per-hour', type=float, help='Cost per hour of support')
     parser.add_argument('--prepaid-hours', type=float, help='Prepaid hours per month')
+    parser.add_argument('--billing-plan', type=str,
+                        choices=['[PLAN-D]', '[PLAN-C]', '[PLAN-B]', '[PLAN-A]',
+                                '[PLAN-E]', '[PLAN-F]', 'Break Fix', '[PLAN-G]'],
+                        help='Set billing plan type')
+    parser.add_argument('--contract-term', type=str,
+                        choices=['Month to Month', '1-Year', '2-Year', '3-Year'],
+                        help='Set contract term length')
     parser.add_argument('--line-item', nargs=2, metavar=('NAME', 'AMOUNT'),
                         help='Add recurring line item (name and monthly amount)')
 
@@ -244,15 +253,26 @@ def main():
         rates_to_update['per_server_cost'] = args.per_server
     if args.per_vm is not None:
         rates_to_update['per_vm_cost'] = args.per_vm
+    if args.per_switch is not None:
+        rates_to_update['per_switch_cost'] = args.per_switch
+    if args.per_firewall is not None:
+        rates_to_update['per_firewall_cost'] = args.per_firewall
     if args.per_hour is not None:
         rates_to_update['per_hour_ticket_cost'] = args.per_hour
     if args.prepaid_hours is not None:
         rates_to_update['prepaid_hours_monthly'] = args.prepaid_hours
+    if args.billing_plan is not None:
+        rates_to_update['billing_plan'] = args.billing_plan
+    if args.contract_term is not None:
+        rates_to_update['term_length'] = args.contract_term
 
     if rates_to_update:
         print("Updating rates...")
         for key, value in rates_to_update.items():
-            print(f"  {key}: ${value:.2f}")
+            if key in ['billing_plan', 'term_length']:
+                print(f"  {key}: {value}")
+            else:
+                print(f"  {key}: ${value:.2f}")
 
         if update_rates(account_number, rates_to_update):
             print("✓ Rates updated successfully\n")
@@ -286,12 +306,16 @@ def main():
         print(f"  Per workstation: ${rates.get('per_workstation_cost', 0):.2f}")
         print(f"  Per server: ${rates.get('per_server_cost', 0):.2f}")
         print(f"  Per VM: ${rates.get('per_vm_cost', 0):.2f}")
+        print(f"  Per switch: ${rates.get('per_switch_cost', 0):.2f}")
+        print(f"  Per firewall: ${rates.get('per_firewall_cost', 0):.2f}")
 
         print(f"\nCurrent quantities:")
         print(f"  Users: {quantities.get('regular_users', 0)}")
         print(f"  Workstations: {quantities.get('workstation', 0)}")
         print(f"  Servers: {quantities.get('server', 0)}")
         print(f"  VMs: {quantities.get('vm', 0)}")
+        print(f"  Switches: {quantities.get('switch', 0)}")
+        print(f"  Firewalls: {quantities.get('firewall', 0)}")
 
         print(f"\nCharges:")
         print(f"  Users: ${receipt.get('total_user_charges', 0):.2f}")
