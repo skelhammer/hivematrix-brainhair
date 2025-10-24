@@ -578,3 +578,57 @@ def search_chat_history():
     except Exception as e:
         logger.error(f"Error searching chat history: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/chat/session/<session_id>/title', methods=['PUT'])
+@token_required
+def update_session_title(session_id):
+    """
+    Update the title of a chat session.
+
+    Body:
+        - title: New title for the session
+    """
+    from models import ChatSession as ChatSessionModel
+    from extensions import db
+
+    logger = get_helm_logger()
+
+    try:
+        user = g.user
+        user_id = user.get('preferred_username')
+
+        # Get request data
+        data = request.get_json()
+        if not data or 'title' not in data:
+            return jsonify({'error': 'Title required'}), 400
+
+        title = data['title'].strip()
+        if not title:
+            return jsonify({'error': 'Title cannot be empty'}), 400
+
+        # Get session
+        session = ChatSessionModel.query.get(session_id)
+
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+
+        # Verify ownership
+        if session.user_id != user_id:
+            return jsonify({'error': 'Unauthorized'}), 403
+
+        # Update title
+        session.title = title
+        db.session.commit()
+
+        logger.info(f"Updated title for session {session_id} to '{title}'")
+
+        return jsonify({
+            'success': True,
+            'session_id': session_id,
+            'title': title
+        })
+
+    except Exception as e:
+        logger.error(f"Error updating session title: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500

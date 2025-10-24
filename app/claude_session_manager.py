@@ -83,6 +83,8 @@ class ClaudeSession:
         self.env = os.environ.copy()
         self.env['HIVEMATRIX_USER'] = self.user
         self.env['HIVEMATRIX_CONTEXT'] = json.dumps(self.context)
+        self.env['BRAINHAIR_SESSION_ID'] = self.db_session_id  # For session tools
+        self.env['BRAINHAIR_URL'] = os.environ.get('SERVICE_URL', 'http://localhost:5050')
 
         # Path to our tools directory
         tools_dir = os.path.join(os.path.dirname(__file__), '..', 'claude_tools')
