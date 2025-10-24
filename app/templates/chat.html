@@ -17,6 +17,8 @@
             color: #333;
             height: 100vh;
             overflow: hidden;
+            margin: 0;
+            padding: 0;
         }
 
         /* Chat Container */
@@ -32,7 +34,7 @@
 
         /* Chat Header */
         .chat__header {
-            padding: 1rem 1.5rem;
+            padding: 0.75rem 1rem;  /* Reduced padding to fit better in Nexus */
             background: #2c3e50;
             color: white;
             display: flex;
@@ -73,7 +75,7 @@
         .chat__messages {
             flex: 1;
             overflow-y: auto;
-            padding: 2rem;
+            padding: 1rem;  /* Reduced padding to fit better in Nexus */
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
@@ -215,7 +217,7 @@
 
         /* Input Area */
         .chat__input-container {
-            padding: 1rem 1.5rem;
+            padding: 0.75rem 1rem;  /* Reduced padding to fit better in Nexus */
             background: white;
             border-top: 1px solid #e0e0e0;
             flex-shrink: 0;  /* Prevent input from shrinking */
