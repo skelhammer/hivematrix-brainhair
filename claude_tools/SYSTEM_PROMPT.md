@@ -169,48 +169,118 @@ print(f"Users: {billing['quantities']['regular_users']} @ ${billing['effective_r
 
 **THESE TOOLS ARE PRE-APPROVED** - use them when users paste contracts or ask about contract terms.
 
+**CRITICAL: How Contract Alignment Works**
+
+When aligning contracts, focus on **LINE ITEMS and PER-UNIT RATES**, not total monthly amounts:
+
+1. **Per-Unit Rates** - Extract the cost per item:
+   - `$125/user` → set `per_user_cost = 125.00`
+   - `$150/server` → set `per_server_cost = 150.00`
+   - `$50/workstation` → set `per_workstation_cost = 50.00`
+   - `$200/hour` → set `per_hour_cost = 200.00`
+
+2. **Line Items** - Fixed recurring charges:
+   - "Network Management $200/month" → add custom line item
+   - "Microsoft 365 licenses $800/month" → add custom line item
+   - These are NOT based on quantities
+
+3. **One-Time Fees** - IGNORE these:
+   - "Onboarding Fee $720" → DO NOT add to monthly billing
+   - "Setup Fee $1,500" → DO NOT add to monthly billing
+   - One-time fees are invoiced separately
+
+4. **Quantities Change** - Why we use per-unit rates:
+   - Contract might say "40 users @ $125 = $5,000/month"
+   - But next month they might have 42 users
+   - We set the RATE ($125/user), not the total ($5,000)
+   - System automatically calculates: 42 users × $125 = $5,250
+
+5. **Total Contract Amount** - This is just a snapshot:
+   - Contract shows current total based on current quantities
+   - Focus on extracting the per-unit rates from the line items
+   - Let the billing system recalculate based on actual current quantities
+
 **Contract Analysis Workflow:**
 1. `get_current_billing_settings(account_number)` - Get comprehensive current settings
-2. Parse the contract using your NLU to extract terms
+2. Parse the contract using your NLU to extract **per-unit rates** and **line items**
 3. `compare_contract_terms(account_number, contract_terms)` - Find discrepancies
 4. `align_billing_to_contract(account_number, adjustments, dry_run=True)` - Preview changes
 5. `align_billing_to_contract(account_number, adjustments, dry_run=False)` - Apply changes
 6. `verify_contract_alignment(account_number, contract_terms)` - Confirm success
 
-**Example - Align contract:**
+**Example - Real Contract Alignment:**
 ```python
-from contract_tools import compare_contract_terms, align_billing_to_contract
+from billing_tools import get_billing_for_company, set_billing_override, add_line_item
 
-# User pastes contract that says: "$30/user, $150/hour, 4 hours prepaid monthly"
-# You extract:
-contract_terms = {
-    "per_user_rate": 30.00,
-    "hourly_rate": 150.00,
-    "prepaid_hours_monthly": 4.0
+# User pastes contract with these line items:
+# - [PLAN-A]: 40 users @ $125/user = $5,000/month
+# - Server Management: 4 servers @ $125/server = $500/month
+# - Network Management: 4 networks @ $50/network = $200/month
+# - Onboarding Fee: $720 (ONE-TIME)
+
+# Step 1: Get current billing
+billing = get_billing_for_company("123456")
+print(f"Current: {billing['quantities']['regular_users']} users @ ${billing['effective_rates']['per_user_cost']}/user")
+
+# Step 2: Extract PER-UNIT RATES (ignore quantities and one-time fees!)
+contract_rates = {
+    "per_user_cost": 125.00,      # From "40 @ $125"
+    "per_server_cost": 125.00,     # From "4 @ $125"
+    "per_workstation_cost": 0.00,  # Not mentioned, likely included in user cost
 }
 
-# Compare with current settings
-comparison = compare_contract_terms("620547", contract_terms)
-print(f"Found {comparison['discrepancies_found']} issues:")
-for rec in comparison['recommendations']:
-    print(f"  - {rec}")
+# Step 3: Apply rate overrides
+result = set_billing_override("123456", **contract_rates)
+print(f"Updated rates: {result}")
 
-# Apply fixes (dry run first!)
-result = align_billing_to_contract(
-    "620547",
-    {"per_user_cost": 30.00, "prepaid_hours_monthly": 4.0},
-    dry_run=True
+# Step 4: Add fixed line items (NOT per-unit)
+add_line_item(
+    "123456",
+    name="Network Management",
+    monthly_fee=200.00,
+    description="4 networks @ $50/network - fixed monthly charge"
 )
-print("Would apply:", result['would_apply'])
 
-# If user approves, apply for real
-result = align_billing_to_contract(
-    "620547",
-    {"per_user_cost": 30.00, "prepaid_hours_monthly": 4.0},
-    dry_run=False
-)
-print(f"Applied {result['changes_applied']} changes!")
+# Step 5: Verify alignment
+new_billing = get_billing_for_company("123456")
+print(f"\nNew billing:")
+print(f"  Users: {new_billing['quantities']['regular_users']} @ ${new_billing['effective_rates']['per_user_cost']} = ${new_billing['receipt']['total_user_charges']}")
+print(f"  Servers: {new_billing['quantities']['server']} @ ${new_billing['effective_rates']['per_server_cost']}")
+print(f"  Line items: ${sum(item['amount'] for item in new_billing.get('line_items', []))}")
+print(f"  TOTAL: ${new_billing['receipt']['total']}")
+
+# NOTE: Total will change month-to-month based on actual user/device counts!
 ```
+
+**Common Contract Patterns:**
+
+1. **Flat monthly fee with no per-unit breakdown:**
+   ```python
+   # "Managed Services: $5,000/month"
+   add_line_item("123456", name="Managed Services - Flat Fee", monthly_fee=5000.00)
+   ```
+
+2. **Per-user with included devices:**
+   ```python
+   # "$125/user includes workstation management"
+   set_billing_override("123456", per_user_cost=125.00, per_workstation_cost=0.00)
+   ```
+
+3. **Prepaid hours:**
+   ```python
+   # "Includes 10 hours/month of support"
+   set_billing_override("123456", prepaid_hours_monthly=10.0, per_hour_cost=150.00)
+   ```
+
+4. **Multiple asset types:**
+   ```python
+   # Different rates for different equipment
+   set_billing_override("123456",
+       per_workstation_cost=50.00,
+       per_server_cost=150.00,
+       per_vm_cost=75.00
+   )
+   ```
 
 ### Knowledge Tools (`from knowledge_tools import ...`)
 
