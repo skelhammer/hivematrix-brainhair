@@ -54,6 +54,12 @@ Here are the exact commands to run (copy-paste ready):
 # Get billing for any company (by name or account number)
 /home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/get_billing.py "Example Company"
 /home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/get_billing.py 123456
+
+# Update billing rates (per-unit costs)
+/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/update_billing.py "Example Company" --per-user 125 --per-server 125 --per-workstation 0
+
+# Add recurring line items (fixed monthly charges)
+/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/update_billing.py "Example Company" --line-item "Network Management" 200
 ```
 
 ### Companies
@@ -207,34 +213,57 @@ print(f"Users: {billing['quantities']['regular_users']} @ ${billing['effective_r
 
 **CRITICAL: How Contract Alignment Works**
 
-When aligning contracts, focus on **LINE ITEMS and PER-UNIT RATES**, not total monthly amounts:
+When aligning contracts, focus on **PER-UNIT RATES**, NOT total contract amounts!
 
-1. **Per-Unit Rates** - Extract the cost per item:
-   - `$125/user` → set `per_user_cost = 125.00`
-   - `$150/server` → set `per_server_cost = 150.00`
-   - `$50/workstation` → set `per_workstation_cost = 50.00`
-   - `$200/hour` → set `per_hour_cost = 200.00`
+**CONTRACT STRUCTURE:**
+```
+Line Item                          Quantity  Unit Price  Total
+─────────────────────────────────────────────────────────────
+[PLAN-A] (users)                    40   $125/user   $5,000
+Server Management                        4   $125/server   $500
+Network Management (fixed monthly)      1      $200      $200
+Onboarding Fee (ONE-TIME)               1      $720      $720  ← IGNORE!
+                                                         ──────
+                                    Monthly Subtotal    $5,700
+                                    One-time Subtotal     $720
+```
 
-2. **Line Items** - Fixed recurring charges:
-   - "Network Management $200/month" → add custom line item
-   - "Microsoft 365 licenses $800/month" → add custom line item
-   - These are NOT based on quantities
+**HOW TO EXTRACT RATES:**
 
-3. **One-Time Fees** - IGNORE these:
-   - "Onboarding Fee $720" → DO NOT add to monthly billing
-   - "Setup Fee $1,500" → DO NOT add to monthly billing
-   - One-time fees are invoiced separately
+1. **Per-Unit Rates** - Look for "X @ $Y" or "X units @ $Y/unit":
+   - "40 users @ $125/user" → Extract: $125/user (ignore the quantity 40)
+   - "4 servers @ $125/server" → Extract: $125/server (ignore the quantity 4)
+   - If workstations aren't mentioned, set to $0 (included in user cost)
 
-4. **Quantities Change** - Why we use per-unit rates:
-   - Contract might say "40 users @ $125 = $5,000/month"
-   - But next month they might have 42 users
-   - We set the RATE ($125/user), not the total ($5,000)
-   - System automatically calculates: 42 users × $125 = $5,250
+2. **Fixed Line Items** - Monthly charges NOT based on quantities:
+   - "Network Management 4 @ $50" but described as fixed → Add line item at $200/month
+   - "Microsoft 365 licenses $800/month" → Add line item at $800/month
+   - These don't scale with user/device counts
 
-5. **Total Contract Amount** - This is just a snapshot:
-   - Contract shows current total based on current quantities
-   - Focus on extracting the per-unit rates from the line items
-   - Let the billing system recalculate based on actual current quantities
+3. **One-Time Fees** - COMPLETELY IGNORE:
+   - "Onboarding Fee $720" → SKIP (not recurring)
+   - "Setup Fee $1,500" → SKIP (not recurring)
+   - Look for "One-time subtotal" section in contracts
+
+4. **WHY Ignore Total Amount:**
+   - Contract shows: "40 users @ $125 = $5,000"
+   - Next month they might have 42 users
+   - We store: per_user_cost = $125
+   - System calculates: 42 × $125 = $5,250 automatically
+   - **The $5,000 in the contract is outdated as soon as user count changes!**
+
+5. **Real Example:**
+   ```
+   Contract says:
+   - "40 users @ $125 = $5,000"    → Set per_user_cost = 125
+   - "4 servers @ $125 = $500"     → Set per_server_cost = 125
+   - "Network Mgmt 4 @ $50 = $200" → Add line item = 200 (fixed)
+   - "Onboarding $720"             → IGNORE (one-time)
+
+   Commands to run:
+   update_billing.py "Company" --per-user 125 --per-server 125 --per-workstation 0
+   update_billing.py "Company" --line-item "Network Management" 200
+   ```
 
 **Contract Analysis Workflow:**
 1. `get_current_billing_settings(account_number)` - Get comprehensive current settings
