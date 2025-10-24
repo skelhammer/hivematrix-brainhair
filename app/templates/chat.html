@@ -350,6 +350,36 @@
             font-size: 0.85rem;
             color: #7f8c8d;
         }
+
+        /* Missing history item classes */
+        .chat-history__item {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .chat-history__item:hover {
+            background: #f8f9fa;
+        }
+
+        .chat-history__item-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            color: #2c3e50;
+        }
+
+        .chat-history__item-meta {
+            font-size: 0.85rem;
+            color: #7f8c8d;
+            display: flex;
+            gap: 1rem;
+        }
+
+        /* Typing indicator visibility */
+        .chat__typing--visible {
+            display: flex !important;
+        }
     </style>
 </head>
 <body>
@@ -654,15 +684,15 @@
 
         function toggleHistory() {
             const history = document.getElementById('chat-history');
-            history.classList.toggle('chat-history--open');
+            history.classList.toggle('open');
 
-            if (history.classList.contains('chat-history--open')) {
+            if (history.classList.contains('open')) {
                 loadHistory();
             }
         }
 
         function closeHistory() {
-            document.getElementById('chat-history').classList.remove('chat-history--open');
+            document.getElementById('chat-history').classList.remove('open');
         }
 
         async function loadHistory() {
