@@ -100,7 +100,7 @@ def test_db_connection(creds):
 
     # Escape special characters in password
     escaped_password = quote_plus(creds['password'])
-    conn_string = f"postgresql://{creds['user']}:{escaped_password}@{creds['host']}:{creds['port']}/{creds['dbname']}"
+    conn_string = f"postgresql+psycopg://{creds['user']}:{escaped_password}@{creds['host']}:{creds['port']}/{creds['dbname']}"
 
     try:
         engine = create_engine(conn_string)
@@ -160,7 +160,7 @@ def init_db_headless(db_host, db_port, db_name, db_user, db_password, migrate_on
 
     # Build connection string
     escaped_password = quote_plus(db_password)
-    conn_string = f"postgresql://{db_user}:{escaped_password}@{db_host}:{db_port}/{db_name}"
+    conn_string = f"postgresql+psycopg://{db_user}:{escaped_password}@{db_host}:{db_port}/{db_name}"
 
     # Test connection
     print(f"\n→ Testing database connection to {db_host}:{db_port}/{db_name}...")
