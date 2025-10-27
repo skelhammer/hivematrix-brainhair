@@ -19,9 +19,22 @@ load_dotenv('.flaskenv')
 # Add current directory to path for imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from app import app
-from extensions import db
-from models import ChatSession, ChatMessage
+# NOTE: We import app later in functions to allow config file to be created first
+# For headless mode, app is imported AFTER config file is written
+app = None
+db = None
+
+def _import_app():
+    """Import app and db after config file exists."""
+    global app, db
+    if app is None:
+        from app import app as flask_app
+        from extensions import db as database
+        # Import ALL models so SQLAlchemy knows about them
+        from models import ChatSession, ChatMessage
+        app = flask_app
+        db = database
+    return app, db
 
 
 def get_db_credentials(config):
@@ -139,7 +152,9 @@ def init_db_headless(db_host, db_port, db_name, db_user, db_password, migrate_on
     print("BRAINHAIR DATABASE INITIALIZATION (HEADLESS MODE)")
     print("="*80)
 
-    instance_path = app.instance_path
+    # Determine instance path without importing app yet
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    instance_path = os.path.join(script_dir, 'instance')
     os.makedirs(instance_path, exist_ok=True)
     config_path = os.path.join(instance_path, 'brainhair.conf')
 
@@ -170,7 +185,8 @@ def init_db_headless(db_host, db_port, db_name, db_user, db_password, migrate_on
     # Initialize database schema
     print("\n→ Initializing database schema...")
     try:
-        app.config['SQLALCHEMY_DATABASE_URI'] = conn_string
+        # Import app AFTER config is written so it loads with correct database
+        app, db = _import_app()
 
         with app.app_context():
             db.create_all()
@@ -197,6 +213,7 @@ def init_db():
 
     Interactively configures and initializes the Brain Hair database.
     """
+    app, db = _import_app()
     # Ensure instance directory exists
     instance_path = app.instance_path
     os.makedirs(instance_path, exist_ok=True)
