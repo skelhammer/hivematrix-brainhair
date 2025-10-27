@@ -153,7 +153,13 @@ class ClaudeSession:
 
             # Invoke Claude Code with permissions bypassed and streaming JSON output
             # This is safe since we're in a controlled server environment and only accessing HiveMatrix data
-            claude_bin = '/home/david/.npm/_npx/becf7b9e49303068/node_modules/.bin/claude'
+            # Try to find claude binary in npx cache
+            import glob
+            npx_cache = os.path.expanduser('~/.npm/_npx/*/node_modules/.bin/claude')
+            claude_bins = glob.glob(npx_cache)
+            if not claude_bins:
+                raise RuntimeError("Claude Code binary not found. Run: npx -y @anthropic-ai/claude-code")
+            claude_bin = claude_bins[0]  # Use first (most recent) version found
             cmd = [
                 claude_bin,
                 '--model', 'claude-sonnet-4-5',
