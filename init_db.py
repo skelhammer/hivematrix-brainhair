@@ -7,6 +7,7 @@ Interactively configures the database connection and initializes the schema.
 
 import os
 import sys
+import argparse
 import configparser
 from getpass import getpass
 from sqlalchemy import create_engine
@@ -130,6 +131,66 @@ def save_config(config_path, creds, conn_string):
     print(f"\n✅ Configuration saved to: {config_path}")
 
 
+def init_db_headless(db_host, db_port, db_name, db_user, db_password, migrate_only=False):
+    """Non-interactive database initialization for automated installation."""
+    from urllib.parse import quote_plus
+
+    print("\n" + "="*80)
+    print("BRAINHAIR DATABASE INITIALIZATION (HEADLESS MODE)")
+    print("="*80)
+
+    instance_path = app.instance_path
+    os.makedirs(instance_path, exist_ok=True)
+    config_path = os.path.join(instance_path, 'brainhair.conf')
+
+    # Build connection string
+    escaped_password = quote_plus(db_password)
+    conn_string = f"postgresql://{db_user}:{escaped_password}@{db_host}:{db_port}/{db_name}"
+
+    # Test connection
+    print(f"\n→ Testing database connection to {db_host}:{db_port}/{db_name}...")
+    try:
+        engine = create_engine(conn_string)
+        with engine.connect() as connection:
+            print("✓ Database connection successful")
+    except Exception as e:
+        print(f"✗ Connection failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Save configuration
+    creds = {
+        'host': db_host,
+        'port': db_port,
+        'dbname': db_name,
+        'user': db_user,
+        'password': db_password
+    }
+    save_config(config_path, creds, conn_string)
+
+    # Initialize database schema
+    print("\n→ Initializing database schema...")
+    try:
+        app.config['SQLALCHEMY_DATABASE_URI'] = conn_string
+
+        with app.app_context():
+            db.create_all()
+
+            from sqlalchemy import inspect
+            inspector = inspect(db.engine)
+            tables = inspector.get_table_names()
+
+            print(f"✓ Database schema initialized successfully!")
+            print(f"  Created {len(tables)} tables")
+
+    except Exception as e:
+        print(f"✗ Failed to initialize database schema: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    print("\n" + "="*80)
+    print(" ✓ BrainHair Initialization Complete!")
+    print("="*80)
+
+
 def init_db():
     """
     Main initialization function.
@@ -209,8 +270,68 @@ def init_db():
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description='Initialize BrainHair database schema',
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        '--headless',
+        action='store_true',
+        help='Non-interactive mode for automated installation'
+    )
+    parser.add_argument(
+        '--db-host',
+        type=str,
+        default='localhost',
+        help='Database host (default: localhost)'
+    )
+    parser.add_argument(
+        '--db-port',
+        type=str,
+        default='5432',
+        help='Database port (default: 5432)'
+    )
+    parser.add_argument(
+        '--db-name',
+        type=str,
+        default='brainhair_db',
+        help='Database name (default: brainhair_db)'
+    )
+    parser.add_argument(
+        '--db-user',
+        type=str,
+        default='brainhair_user',
+        help='Database user (default: brainhair_user)'
+    )
+    parser.add_argument(
+        '--db-password',
+        type=str,
+        help='Database password (required for headless mode)'
+    )
+    parser.add_argument(
+        '--migrate-only',
+        action='store_true',
+        help='Only run migrations on existing database'
+    )
+
+    args = parser.parse_args()
+
     try:
-        init_db()
+        if args.headless:
+            if not args.db_password:
+                print("ERROR: --db-password is required for headless mode", file=sys.stderr)
+                sys.exit(1)
+
+            init_db_headless(
+                db_host=args.db_host,
+                db_port=args.db_port,
+                db_name=args.db_name,
+                db_user=args.db_user,
+                db_password=args.db_password,
+                migrate_only=args.migrate_only
+            )
+        else:
+            init_db()
     except KeyboardInterrupt:
         print("\n\n❌ Setup cancelled by user.")
         sys.exit(1)
