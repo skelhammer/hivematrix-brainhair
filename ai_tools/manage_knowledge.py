@@ -4,14 +4,20 @@ Manage Knowledge Base Articles
 
 Create, update, search, and delete articles in the KnowledgeTree.
 
+IMPORTANT: The tool automatically checks if paths exist. When creating articles:
+1. Just call 'create' with the full parent path - don't check if it exists first
+2. The tool will validate the path and give you clear error messages
+3. Browse a path to see what folders and articles exist there
+
 Usage:
     # Search for articles
     python manage_knowledge.py search <query>
     python manage_knowledge.py search "password reset"
 
-    # Create new article
+    # Create new article (parent path must exist - tool will verify)
     python manage_knowledge.py create <parent_path> <title> --content "Article content"
     python manage_knowledge.py create "/IT/Windows" "Password Reset Guide" --content "Steps to reset..."
+    python manage_knowledge.py create "/Companies/Example Company Performance Materials" "overview.md" --content "Company info..."
 
     # Update existing article (by node ID or path)
     python manage_knowledge.py update <node_id_or_path> --content "Updated content" --title "New Title"
@@ -22,9 +28,10 @@ Usage:
     python manage_knowledge.py delete <node_id>
     python manage_knowledge.py delete abc-123
 
-    # Browse structure
+    # Browse structure (shows folders and articles with IDs)
     python manage_knowledge.py browse <path>
     python manage_knowledge.py browse "/IT"
+    python manage_knowledge.py browse "/Companies/Example Company Performance Materials"
 
     # Create folder
     python manage_knowledge.py create-folder <parent_path> <folder_name>
