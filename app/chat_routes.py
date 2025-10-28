@@ -781,20 +781,19 @@ def respond_to_approval(approval_id):
     logger = get_helm_logger()
 
     try:
-        if approval_id not in pending_approvals:
-            return jsonify({'error': 'Invalid approval ID'}), 404
-
         data = request.get_json()
         approved = data.get('approved', False)
 
-        approval = pending_approvals[approval_id]
-        approval['status'] = 'approved' if approved else 'denied'
+        # Write response to file that the tool is polling
+        response_file = f"/tmp/brainhair_approval_{approval_id}.json"
+        with open(response_file, 'w') as f:
+            json.dump({'approved': approved}, f)
 
         logger.info(f"Approval {approval_id} {'approved' if approved else 'denied'} by user")
 
         return jsonify({
             'success': True,
-            'status': approval['status']
+            'approved': approved
         })
 
     except Exception as e:

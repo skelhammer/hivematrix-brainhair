@@ -6,7 +6,7 @@ Helper functions for tools that need user approval before making changes.
 """
 
 import os
-import requests
+import sys
 import time
 import json
 
@@ -14,6 +14,10 @@ import json
 def request_approval(action: str, details: dict, timeout: int = 120) -> bool:
     """
     Request approval from the user for a write operation.
+
+    This sends an approval request as a JSON chunk to stdout, which gets
+    streamed to the browser. The browser shows a modal and responds by
+    writing to a file that we poll.
 
     Args:
         action: Description of the action (e.g., "Update per-user cost to $100")
@@ -34,94 +38,59 @@ def request_approval(action: str, details: dict, timeout: int = 120) -> bool:
     # Get session ID from environment
     session_id = os.environ.get('BRAINHAIR_SESSION_ID')
     if not session_id:
-        print("ERROR: No active session ID found")
+        print("ERROR: No active session ID found", file=sys.stderr)
         return False
 
-    # Service URLs
-    brainhair_url = os.getenv('BRAINHAIR_URL', 'http://localhost:5050')
-    core_url = os.getenv('CORE_SERVICE_URL', 'http://localhost:5000')
+    # Generate unique approval ID
+    approval_id = str(time.time())  # Use timestamp as simple unique ID
 
-    # Get service token
-    try:
-        token_response = requests.post(
-            f"{core_url}/service-token",
-            json={
-                "calling_service": "brainhair-tools",
-                "target_service": "brainhair"
-            },
-            timeout=5
-        )
-        if token_response.status_code != 200:
-            print(f"ERROR: Failed to get service token: {token_response.status_code}")
-            return False
+    # Create response file path
+    response_file = f"/tmp/brainhair_approval_{approval_id}.json"
 
-        token = token_response.json()['token']
-        headers = {"Authorization": f"Bearer {token}"}
+    # Send approval request as JSON to stdout (will be streamed to browser)
+    approval_request = {
+        'type': 'approval_request',
+        'approval_id': approval_id,
+        'action': action,
+        'details': details
+    }
 
-    except Exception as e:
-        print(f"ERROR: Failed to get service token: {e}")
-        return False
+    # Write to stdout in JSON format (will be captured by streaming)
+    print(json.dumps(approval_request), flush=True)
 
-    # Create approval request
-    try:
-        response = requests.post(
-            f"{brainhair_url}/api/approval/request",
-            json={
-                'session_id': session_id,
-                'action': action,
-                'details': details
-            },
-            headers=headers,
-            timeout=5
-        )
+    # Show waiting message
+    print(f"\n⏳ Waiting for user approval...", file=sys.stderr)
+    print(f"   Action: {action}", file=sys.stderr)
+    for key, value in details.items():
+        print(f"   {key}: {value}", file=sys.stderr)
 
-        if response.status_code != 200:
-            print(f"ERROR: Failed to create approval request: {response.status_code}")
-            return False
-
-        approval_id = response.json()['approval_id']
-        print(f"\n⏳ Waiting for user approval...")
-        print(f"   Action: {action}")
-        for key, value in details.items():
-            print(f"   {key}: {value}")
-
-    except Exception as e:
-        print(f"ERROR: Failed to create approval request: {e}")
-        return False
-
-    # Poll for approval
+    # Poll for response file
     start_time = time.time()
     while time.time() - start_time < timeout:
-        try:
-            response = requests.get(
-                f"{brainhair_url}/api/approval/poll/{approval_id}",
-                headers=headers,
-                timeout=5
-            )
+        if os.path.exists(response_file):
+            try:
+                with open(response_file, 'r') as f:
+                    response = json.load(f)
 
-            if response.status_code != 200:
-                print(f"ERROR: Failed to poll approval: {response.status_code}")
+                # Clean up file
+                os.remove(response_file)
+
+                if response.get('approved'):
+                    print("✓ User approved the change", file=sys.stderr)
+                    return True
+                else:
+                    print("✗ User denied the change", file=sys.stderr)
+                    return False
+
+            except Exception as e:
+                print(f"ERROR: Failed to read response: {e}", file=sys.stderr)
                 return False
 
-            data = response.json()
-            status = data.get('status')
-
-            if status == 'approved':
-                print("✓ User approved the change")
-                return True
-            elif status == 'denied':
-                print("✗ User denied the change")
-                return False
-
-            # Still pending, wait a bit
-            time.sleep(1)
-
-        except Exception as e:
-            print(f"ERROR: Failed to poll approval: {e}")
-            return False
+        # Wait a bit before checking again
+        time.sleep(0.5)
 
     # Timeout
-    print(f"ERROR: Approval timeout after {timeout} seconds")
+    print(f"ERROR: Approval timeout after {timeout} seconds", file=sys.stderr)
     return False
 
 
