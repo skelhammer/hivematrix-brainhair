@@ -83,7 +83,7 @@
     </div>
 
     <!-- Approval Dialog -->
-    <div id="approval-dialog" class="modal" style="display: none;">
+    <div id="approval-dialog" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999;">
         <div class="modal__overlay" onclick="denyApproval()"></div>
         <div class="modal__content">
             <h2 class="modal__title">⚠️ Approval Required</h2>
@@ -195,6 +195,7 @@
                     if (data.chunks && data.chunks.length > 0) {
                         // Process new chunks
                         for (const chunk of data.chunks) {
+                            console.log('Received chunk:', chunk);
                             if (chunk.type === 'chunk') {
                                 appendToLastMessage(chunk.content);
                             } else if (chunk.type === 'error') {
@@ -204,6 +205,7 @@
                                 appendToLastMessage(`\n\n⚙️ ${chunk.action}\n\n`);
                             } else if (chunk.type === 'approval_request') {
                                 // Show approval dialog
+                                console.log('Approval request received:', chunk);
                                 showApprovalDialogFromChunk(chunk);
                             }
                         }
@@ -349,6 +351,7 @@
         // ==================== Approval Functions ====================
 
         function showApprovalDialogFromChunk(chunk) {
+            console.log('showApprovalDialogFromChunk called with:', chunk);
             // Chunk has: approval_id, action, details
             currentApprovalId = chunk.approval_id;
 
@@ -366,7 +369,10 @@
             }
 
             // Show dialog
-            document.getElementById('approval-dialog').style.display = 'flex';
+            console.log('Showing approval dialog');
+            const dialog = document.getElementById('approval-dialog');
+            dialog.style.display = 'block';
+            console.log('Dialog display set to block, element:', dialog);
         }
 
         async function approveChange() {
