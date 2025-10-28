@@ -262,8 +262,15 @@ class ClaudeSession:
                         if block_type == 'tool_use':
                             tool_name = content_block.get('name', 'unknown')
                             tool_id = content_block.get('id', '')
-                            self.logger.info(f"[STREAM] Tool use detected: {tool_name} (id: {tool_id})")
-                            yield json.dumps({"type": "thinking", "action": f"Using tool: {tool_name}"})
+                            tool_input = content_block.get('input', {})
+
+                            # For Bash tool, show the description if available
+                            tool_display = tool_name
+                            if tool_name == 'Bash' and 'description' in tool_input:
+                                tool_display = f"Bash: {tool_input['description']}"
+
+                            self.logger.info(f"[STREAM] Tool use detected: {tool_name} (id: {tool_id}), input: {tool_input}")
+                            yield json.dumps({"type": "thinking", "action": f"⚙️ {tool_display}"})
 
                     # Skip assistant message - we already got the text from content_block_delta
                     elif event_type == 'assistant':
