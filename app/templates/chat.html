@@ -82,11 +82,27 @@
         </div>
     </div>
 
+    <!-- Approval Dialog -->
+    <div id="approval-dialog" class="modal" style="display: none;">
+        <div class="modal__overlay" onclick="denyApproval()"></div>
+        <div class="modal__content">
+            <h2 class="modal__title">⚠️ Approval Required</h2>
+            <div id="approval-action" class="modal__action"></div>
+            <div id="approval-details" class="modal__details"></div>
+            <div class="modal__buttons">
+                <button class="btn btn--danger" onclick="denyApproval()">✗ Deny</button>
+                <button class="btn btn--primary" onclick="approveChange()">✓ Approve</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // API endpoints
         const API_CHAT = "{{ url_for('chat_message') }}";
         const API_CHAT_POLL = "{{ url_for('poll_response', response_id='RESPONSE_ID') }}".replace('RESPONSE_ID', '{response_id}');
         const API_CHAT_STOP = "{{ url_for('stop_response', response_id='RESPONSE_ID') }}".replace('RESPONSE_ID', '{response_id}');
+        const API_APPROVAL_PENDING = "{{ url_for('get_pending_approvals', session_id='SESSION_ID') }}".replace('SESSION_ID', '{session_id}');
+        const API_APPROVAL_RESPOND = "{{ url_for('respond_to_approval', approval_id='APPROVAL_ID') }}".replace('APPROVAL_ID', '{approval_id}');
         const API_HISTORY = "{{ url_for('list_chat_sessions') }}";
         const API_HISTORY_GET = "{{ url_for('get_chat_session', session_id='SESSION_ID') }}".replace('SESSION_ID', '{session_id}');
         const API_HISTORY_SEARCH = "{{ url_for('search_chat_history') }}";
@@ -94,8 +110,10 @@
         let sessionId = null;
         let currentDbSessionId = null;
         let pollingInterval = null;
+        let approvalPollingInterval = null;
         let currentResponseId = null;
         let currentOffset = 0;
+        let currentApprovalId = null;
 
         // Auto-resize textarea
         const textarea = document.getElementById('message-input');
@@ -155,6 +173,7 @@
                 currentResponseId = data.response_id;
                 currentOffset = 0;
                 startPolling();
+                startApprovalPolling();
 
             } catch (error) {
                 hideTyping();
@@ -323,6 +342,100 @@
             } catch (error) {
                 console.error('Error stopping response:', error);
             }
+        }
+
+        // ==================== Approval Functions ====================
+
+        function startApprovalPolling() {
+            if (!sessionId) return;
+
+            // Clear any existing interval
+            if (approvalPollingInterval) {
+                clearInterval(approvalPollingInterval);
+            }
+
+            approvalPollingInterval = setInterval(async () => {
+                try {
+                    const url = API_APPROVAL_PENDING.replace('{session_id}', sessionId);
+                    const response = await fetch(url);
+                    const data = await response.json();
+
+                    if (data.approvals && data.approvals.length > 0) {
+                        // Show approval dialog for first pending approval
+                        const approval = data.approvals[0];
+                        showApprovalDialog(approval);
+                    }
+                } catch (error) {
+                    console.error('Error polling approvals:', error);
+                }
+            }, 1000); // Poll every second
+        }
+
+        function showApprovalDialog(approval) {
+            currentApprovalId = approval.approval_id;
+
+            // Set action text
+            document.getElementById('approval-action').textContent = approval.action;
+
+            // Set details
+            const detailsDiv = document.getElementById('approval-details');
+            detailsDiv.innerHTML = '';
+            for (const [key, value] of Object.entries(approval.details)) {
+                const detail = document.createElement('div');
+                detail.className = 'modal__detail';
+                detail.innerHTML = `<strong>${key}:</strong> ${value}`;
+                detailsDiv.appendChild(detail);
+            }
+
+            // Show dialog
+            document.getElementById('approval-dialog').style.display = 'flex';
+        }
+
+        async function approveChange() {
+            if (!currentApprovalId) return;
+
+            try {
+                const url = API_APPROVAL_RESPOND.replace('{approval_id}', currentApprovalId);
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ approved: true })
+                });
+
+                if (response.ok) {
+                    hideApprovalDialog();
+                }
+            } catch (error) {
+                console.error('Error approving change:', error);
+            }
+        }
+
+        async function denyApproval() {
+            if (!currentApprovalId) {
+                // Just close if no approval pending
+                hideApprovalDialog();
+                return;
+            }
+
+            try {
+                const url = API_APPROVAL_RESPOND.replace('{approval_id}', currentApprovalId);
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ approved: false })
+                });
+
+                if (response.ok) {
+                    hideApprovalDialog();
+                }
+            } catch (error) {
+                console.error('Error denying change:', error);
+            }
+        }
+
+        function hideApprovalDialog() {
+            document.getElementById('approval-dialog').style.display = 'none';
+            currentApprovalId = null;
         }
 
         function newChat() {

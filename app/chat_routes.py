@@ -18,6 +18,10 @@ import os
 # Store pending commands (in production, use Redis or database)
 pending_commands = {}
 
+# Store pending approval requests
+# Structure: {approval_id: {'session_id': str, 'action': str, 'details': dict, 'status': 'pending'|'approved'|'denied', 'result': any}}
+pending_approvals = {}
+
 # Get the global session manager
 session_manager = get_session_manager()
 
@@ -676,4 +680,123 @@ def update_session_title(session_id):
 
     except Exception as e:
         logger.error(f"Error updating session title: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+# ============================================================
+# Approval Flow Endpoints
+# ============================================================
+
+@app.route('/api/approval/request', methods=['POST'])
+@token_required
+def create_approval_request():
+    """
+    Create an approval request (called by tools).
+
+    Body:
+        - session_id: Session ID
+        - action: Description of the action (e.g., "Update billing")
+        - details: Dict with details to show user
+    """
+    logger = get_helm_logger()
+
+    try:
+        data = request.get_json()
+        session_id = data.get('session_id')
+        action = data.get('action')
+        details = data.get('details', {})
+
+        if not session_id or not action:
+            return jsonify({'error': 'session_id and action required'}), 400
+
+        # Create approval request
+        approval_id = str(uuid.uuid4())
+        pending_approvals[approval_id] = {
+            'session_id': session_id,
+            'action': action,
+            'details': details,
+            'status': 'pending',
+            'result': None
+        }
+
+        logger.info(f"Created approval request {approval_id} for session {session_id}: {action}")
+
+        return jsonify({
+            'approval_id': approval_id,
+            'status': 'pending'
+        })
+
+    except Exception as e:
+        logger.error(f"Error creating approval request: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/approval/poll/<approval_id>', methods=['GET'])
+@token_required
+def poll_approval(approval_id):
+    """Poll for approval status (called by tools waiting for response)."""
+    if approval_id not in pending_approvals:
+        return jsonify({'error': 'Invalid approval ID'}), 404
+
+    approval = pending_approvals[approval_id]
+
+    response = {
+        'status': approval['status'],
+        'result': approval.get('result')
+    }
+
+    # Clean up if completed
+    if approval['status'] in ['approved', 'denied']:
+        del pending_approvals[approval_id]
+
+    return jsonify(response)
+
+
+@app.route('/api/approval/pending/<session_id>', methods=['GET'])
+@token_required
+def get_pending_approvals(session_id):
+    """Get all pending approvals for a session (called by browser)."""
+    pending = [
+        {
+            'approval_id': aid,
+            'action': approval['action'],
+            'details': approval['details']
+        }
+        for aid, approval in pending_approvals.items()
+        if approval['session_id'] == session_id and approval['status'] == 'pending'
+    ]
+
+    return jsonify({'approvals': pending})
+
+
+@app.route('/api/approval/respond/<approval_id>', methods=['POST'])
+@token_required
+def respond_to_approval(approval_id):
+    """
+    User responds to an approval request.
+
+    Body:
+        - approved: true/false
+    """
+    logger = get_helm_logger()
+
+    try:
+        if approval_id not in pending_approvals:
+            return jsonify({'error': 'Invalid approval ID'}), 404
+
+        data = request.get_json()
+        approved = data.get('approved', False)
+
+        approval = pending_approvals[approval_id]
+        approval['status'] = 'approved' if approved else 'denied'
+
+        logger.info(f"Approval {approval_id} {'approved' if approved else 'denied'} by user")
+
+        return jsonify({
+            'success': True,
+            'status': approval['status']
+        })
+
+    except Exception as e:
+        logger.error(f"Error responding to approval: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500

@@ -17,6 +17,10 @@ import json
 import requests
 import argparse
 
+# Import approval helper
+sys.path.insert(0, os.path.dirname(__file__))
+from approval_helper import request_approval
+
 # Service URLs
 CORE_URL = os.getenv('CORE_SERVICE_URL', 'http://localhost:5000')
 LEDGER_URL = os.getenv('LEDGER_SERVICE_URL', 'http://localhost:5030')
@@ -274,6 +278,26 @@ def main():
             else:
                 print(f"  {key}: ${value:.2f}")
 
+        # Request approval
+        approval_details = {
+            'Company': company['name'],
+            'Account': str(account_number)
+        }
+        for key, value in rates_to_update.items():
+            if key in ['billing_plan', 'term_length']:
+                approval_details[key.replace('_', ' ').title()] = value
+            else:
+                approval_details[key.replace('_', ' ').title()] = f"${value:.2f}"
+
+        approved = request_approval(
+            f"Update billing rates for {company['name']}",
+            approval_details
+        )
+
+        if not approved:
+            print("✗ User denied the change")
+            sys.exit(1)
+
         if update_rates(account_number, rates_to_update):
             print("✓ Rates updated successfully\n")
         else:
@@ -285,6 +309,21 @@ def main():
         name, amount = args.line_item
         amount = float(amount)
         print(f"Adding line item: {name} @ ${amount:.2f}/month...")
+
+        # Request approval
+        approved = request_approval(
+            f"Add line item to {company['name']}",
+            {
+                'Company': company['name'],
+                'Account': str(account_number),
+                'Line Item': name,
+                'Monthly Fee': f"${amount:.2f}"
+            }
+        )
+
+        if not approved:
+            print("✗ User denied the change")
+            sys.exit(1)
 
         if add_line_item(account_number, name, amount):
             print("✓ Line item added successfully\n")
