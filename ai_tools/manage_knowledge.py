@@ -4,10 +4,13 @@ Manage Knowledge Base Articles
 
 Create, update, search, and delete articles in the KnowledgeTree.
 
-IMPORTANT: The tool automatically checks if paths exist. When creating articles:
-1. Just call 'create' with the full parent path - don't check if it exists first
-2. The tool will validate the path and give you clear error messages
-3. Browse a path to see what folders and articles exist there
+IMPORTANT: When creating articles, DO NOT browse or check if paths exist first!
+- The 'create' command validates paths automatically and gives clear errors
+- If parent doesn't exist, you'll get: "ERROR: Could not find parent path: /path"
+- If duplicate name, you'll get: "ERROR: A node with name 'X' already exists"
+- Just call 'create' directly - it's fast and handles all validation
+
+To check what exists, use 'browse' AFTER creation to verify, not before.
 
 Usage:
     # Search for articles
