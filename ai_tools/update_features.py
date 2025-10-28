@@ -27,6 +27,10 @@ import json
 import requests
 import argparse
 
+# Import approval helper
+sys.path.insert(0, os.path.dirname(__file__))
+from approval_helper import request_approval
+
 # Service URLs
 CORE_URL = os.getenv('CORE_SERVICE_URL', 'http://localhost:5000')
 LEDGER_URL = os.getenv('LEDGER_SERVICE_URL', 'http://localhost:5030')
@@ -223,6 +227,25 @@ Available feature values (examples):
         feature_name = feature.replace('_', ' ').title()
         print(f"  {feature_name}: {value}")
     print()
+
+    # Request approval
+    details = {
+        'Company': company.get('name'),
+        'Account': str(account_number)
+    }
+    # Add feature updates to details
+    for feature, value in feature_updates.items():
+        feature_name = feature.replace('_', ' ').title()
+        details[feature_name] = value
+
+    approved = request_approval(
+        f"Update features for {company.get('name')}",
+        details
+    )
+
+    if not approved:
+        print("✗ User denied the change")
+        sys.exit(1)
 
     # Update
     if update_features(account_number, feature_updates):

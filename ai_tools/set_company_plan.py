@@ -20,6 +20,10 @@ import os
 import json
 import requests
 
+# Import approval helper
+sys.path.insert(0, os.path.dirname(__file__))
+from approval_helper import request_approval
+
 # Service URLs
 CORE_URL = os.getenv('CORE_SERVICE_URL', 'http://localhost:5000')
 LEDGER_URL = os.getenv('LEDGER_SERVICE_URL', 'http://localhost:5030')
@@ -213,6 +217,24 @@ def main():
     print(f"  Support: {plan['support_level']}")
     print(f"  Features: {plan['antivirus']}, {plan['soc']}, {plan['password_manager']}")
     print()
+
+    # Request approval
+    approved = request_approval(
+        f"Set billing plan for {company_name}",
+        {
+            'Company': company_name,
+            'Account': str(account_number),
+            'Plan': plan_name,
+            'Term': term_length,
+            'Per User': f"${plan['per_user_cost']:.2f}",
+            'Per Server': f"${plan['per_server_cost']:.2f}",
+            'Per Workstation': f"${plan['per_workstation_cost']:.2f}"
+        }
+    )
+
+    if not approved:
+        print("✗ User denied the change")
+        sys.exit(1)
 
     # Apply to Ledger
     print(f"Applying plan to Ledger...")

@@ -18,6 +18,10 @@ import json
 import requests
 import argparse
 
+# Import approval helper
+sys.path.insert(0, os.path.dirname(__file__))
+from approval_helper import request_approval
+
 # Service URLs
 CORE_URL = os.getenv('CORE_SERVICE_URL', 'http://localhost:5000')
 LEDGER_URL = os.getenv('LEDGER_SERVICE_URL', 'http://localhost:5030')
@@ -230,6 +234,21 @@ def main():
 
         print(f"Adding {equipment_type}: {hostname}")
 
+        # Request approval
+        approved = request_approval(
+            f"Add {equipment_type} to {company['name']}",
+            {
+                'Company': company['name'],
+                'Account': str(account_number),
+                'Equipment Type': equipment_type.capitalize(),
+                'Hostname': hostname
+            }
+        )
+
+        if not approved:
+            print("✗ User denied the change")
+            sys.exit(1)
+
         if add_network_equipment(account_number, equipment_type, hostname):
             print(f"✓ {equipment_type.capitalize()} added successfully")
         else:
@@ -240,6 +259,20 @@ def main():
     if args.remove:
         asset_id = args.remove
         print(f"Removing equipment ID {asset_id}")
+
+        # Request approval
+        approved = request_approval(
+            f"Remove equipment from {company['name']}",
+            {
+                'Company': company['name'],
+                'Account': str(account_number),
+                'Equipment ID': str(asset_id)
+            }
+        )
+
+        if not approved:
+            print("✗ User denied the change")
+            sys.exit(1)
 
         if remove_network_equipment(account_number, asset_id):
             print(f"✓ Equipment removed successfully")
