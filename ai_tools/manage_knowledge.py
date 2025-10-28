@@ -13,9 +13,10 @@ Usage:
     python manage_knowledge.py create <parent_path> <title> --content "Article content"
     python manage_knowledge.py create "/IT/Windows" "Password Reset Guide" --content "Steps to reset..."
 
-    # Update existing article
-    python manage_knowledge.py update <node_id> --content "Updated content" --title "New Title"
+    # Update existing article (by node ID or path)
+    python manage_knowledge.py update <node_id_or_path> --content "Updated content" --title "New Title"
     python manage_knowledge.py update abc-123 --content "New steps..."
+    python manage_knowledge.py update "/IT/Windows/Password Reset Guide" --content "Updated steps..."
 
     # Delete article
     python manage_knowledge.py delete <node_id>
@@ -176,8 +177,13 @@ def create_node(parent_path, name, content="", is_folder=False):
             result = response.json()
             new_id = result.get('id')
 
+            if not new_id:
+                print(f"ERROR: Node created but no ID returned")
+                return False
+
             # If not a folder and has content, update it
             if not is_folder and content:
+                print(f"Adding content to node {new_id}...")
                 update_response = requests.put(
                     f"{KNOWLEDGETREE_URL}/api/node/{new_id}",
                     json={'content': content},
@@ -186,9 +192,22 @@ def create_node(parent_path, name, content="", is_folder=False):
                 )
 
                 if update_response.status_code != 200:
-                    print(f"WARNING: Node created but content update failed")
+                    print(f"ERROR: Node created but content update failed: {update_response.status_code}")
+                    print(f"Response: {update_response.text}")
+                    # Still return the ID so user can manually update
+                    print(f"Node ID {new_id} created, but you'll need to add content manually")
+                    return new_id
+                else:
+                    print(f"✓ Content added successfully")
 
             return new_id
+        elif response.status_code == 409:
+            # Duplicate name
+            result = response.json()
+            print(f"ERROR: A node with name '{name}' already exists in {parent_path}")
+            print(f"Existing node ID: {result.get('existing_id')}")
+            print(f"Use the 'update' command to modify it instead, or delete it first")
+            return False
         else:
             print(f"ERROR: Failed to create node: {response.status_code} {response.text}")
             return False
@@ -322,7 +341,7 @@ def main():
 
     # Update command
     update_parser = subparsers.add_parser('update', help='Update existing article')
-    update_parser.add_argument('node_id', help='Node ID')
+    update_parser.add_argument('node_id', help='Node ID or full path (e.g., /IT/Windows/article.md)')
     update_parser.add_argument('--title', help='New title')
     update_parser.add_argument('--content', help='New content (markdown)')
 
@@ -360,9 +379,14 @@ def main():
             print(f"\nCurrent: {result.get('current_node', {}).get('name', 'root')}")
             print(f"ID: {result.get('current_node', {}).get('id', 'root')}")
             print("\nChildren:")
-            for child in result.get('children', []):
-                folder_type = "📁" if child.get('is_folder') else "📄"
-                print(f"  {folder_type} {child['name']} (ID: {child['id']})")
+
+            # Show folders (categories)
+            for category in result.get('categories', []):
+                print(f"  📁 {category['name']}")
+
+            # Show articles
+            for article in result.get('articles', []):
+                print(f"  📄 {article['title']} (ID: {article['id']})")
         else:
             print("Path not found")
 
@@ -420,16 +444,27 @@ def main():
             sys.exit(1)
 
     elif args.command == 'update':
+        # Check if node_id is a path or an ID
+        node_id = args.node_id
+        if node_id.startswith('/'):
+            # It's a path, convert to node ID
+            print(f"Resolving path: {node_id}")
+            node_id = get_node_id_from_path(node_id)
+            if not node_id:
+                print(f"ERROR: Could not find node at path: {args.node_id}")
+                sys.exit(1)
+            print(f"Found node ID: {node_id}")
+
         # Get current node details for approval
-        node = get_node_details(args.node_id)
+        node = get_node_details(node_id)
         if not node:
-            print(f"ERROR: Node not found: {args.node_id}")
+            print(f"ERROR: Node not found: {node_id}")
             sys.exit(1)
 
         # Request approval
         approval_details = {
             'Current Title': node.get('name', 'Unknown'),
-            'Node ID': args.node_id,
+            'Node ID': node_id,
             'Action': 'Update article in KnowledgeTree'
         }
 
@@ -447,8 +482,8 @@ def main():
             print("✗ User denied the change")
             sys.exit(1)
 
-        print(f"Updating node: {args.node_id}")
-        if update_node(args.node_id, title=args.title, content=args.content):
+        print(f"Updating node: {node_id}")
+        if update_node(node_id, title=args.title, content=args.content):
             print(f"✓ Article updated successfully")
         else:
             print("✗ Failed to update article")
