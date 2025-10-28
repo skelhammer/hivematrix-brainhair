@@ -197,6 +197,10 @@ class ClaudeSession:
             idle_timeout = 30  # seconds without output before we give up
             self._last_stop_reason = None  # Track stop reason for tool_use detection
 
+            # Track current tool usage for displaying details
+            current_tool = None
+            current_tool_input = ""
+
             # Stream output line by line
             line_count = 0
             self.logger.info(f"[STREAM] Starting to read from Claude Code stdout")
@@ -252,6 +256,11 @@ class ClaudeSession:
                             response_text += text
                             self.logger.debug(f"[STREAM] Yielding text chunk: {repr(text[:50])}")
                             yield text
+                        elif delta_type == 'input_json_delta':
+                            # Tool input streaming
+                            partial_json = delta.get('partial_json', '')
+                            current_tool_input += partial_json
+                            self.logger.debug(f"[STREAM] Tool input delta: {partial_json[:50]}")
 
                     # Handle content_block_start for tool calls
                     elif event_type == 'content_block_start':
@@ -260,17 +269,10 @@ class ClaudeSession:
                         self.logger.info(f"[STREAM] content_block_start, block_type: {block_type}")
 
                         if block_type == 'tool_use':
-                            tool_name = content_block.get('name', 'unknown')
-                            tool_id = content_block.get('id', '')
-                            tool_input = content_block.get('input', {})
-
-                            # For Bash tool, show the description if available
-                            tool_display = tool_name
-                            if tool_name == 'Bash' and 'description' in tool_input:
-                                tool_display = f"Bash: {tool_input['description']}"
-
-                            self.logger.info(f"[STREAM] Tool use detected: {tool_name} (id: {tool_id}), input: {tool_input}")
-                            yield json.dumps({"type": "thinking", "action": f"⚙️ {tool_display}"})
+                            current_tool = content_block.get('name', 'unknown')
+                            current_tool_input = ""  # Reset input accumulator
+                            self.logger.info(f"[STREAM] Tool use started: {current_tool}")
+                            # Don't yield yet - wait for input to accumulate
 
                     # Skip assistant message - we already got the text from content_block_delta
                     elif event_type == 'assistant':
@@ -313,9 +315,27 @@ class ClaudeSession:
                         pass
 
                     elif event_type == 'content_block_stop':
-                        # Content block finished
+                        # Content block finished - if it was a tool, show what tool was used
+                        if current_tool:
+                            try:
+                                tool_input_obj = json.loads(current_tool_input) if current_tool_input else {}
+                                tool_display = current_tool
+
+                                # For Bash tool, show the description
+                                if current_tool == 'Bash' and 'description' in tool_input_obj:
+                                    tool_display = f"Bash: {tool_input_obj['description']}"
+
+                                self.logger.info(f"[STREAM] Tool block complete: {current_tool}, input: {tool_input_obj}")
+                                yield json.dumps({"type": "thinking", "action": f"⚙️ {tool_display}"})
+                            except json.JSONDecodeError:
+                                self.logger.warning(f"[STREAM] Failed to parse tool input JSON: {current_tool_input[:100]}")
+                                yield json.dumps({"type": "thinking", "action": f"⚙️ {current_tool}"})
+
+                            # Reset tool tracking
+                            current_tool = None
+                            current_tool_input = ""
+
                         self.logger.debug(f"[STREAM] content_block_stop")
-                        pass
 
                     elif event_type == 'message_delta':
                         # Message metadata update - check for stop_reason
