@@ -92,11 +92,14 @@ def chat_message():
         response_id = str(uuid.uuid4())
 
         # Initialize response buffer
+        # Store db_session_id for approval file matching
+        db_session_id = session.db_session_id if hasattr(session, 'db_session_id') else None
         response_buffers[response_id] = {
             'chunks': [],
             'done': False,
             'error': None,
-            'session_id': session_id
+            'session_id': session_id,
+            'db_session_id': db_session_id
         }
 
         # Start background thread to collect response
@@ -150,10 +153,13 @@ def poll_response(response_id):
 
     buffer = response_buffers[response_id]
     session_id = buffer.get('session_id')
+    db_session_id = buffer.get('db_session_id')
 
     # Check for approval request files and inject them into the stream
-    if session_id:
-        approval_files = glob.glob(f"/tmp/brainhair_approval_request_{session_id}_*.json")
+    logger = get_helm_logger()
+    if db_session_id:
+        approval_files = glob.glob(f"/tmp/brainhair_approval_request_{db_session_id}_*.json")
+        logger.debug(f"Checking for approval files: /tmp/brainhair_approval_request_{db_session_id}_*.json, found: {len(approval_files)}")
         for approval_file in approval_files:
             try:
                 with open(approval_file, 'r') as f:
@@ -162,10 +168,10 @@ def poll_response(response_id):
                 # Add to buffer if not already added
                 if not any(chunk.get('approval_id') == approval_data.get('approval_id') for chunk in buffer['chunks']):
                     buffer['chunks'].append(approval_data)
-                    logger = get_helm_logger()
                     logger.info(f"Injected approval request into stream: {approval_data.get('approval_id')}")
+                else:
+                    logger.debug(f"Approval {approval_data.get('approval_id')} already in buffer")
             except Exception as e:
-                logger = get_helm_logger()
                 logger.error(f"Error reading approval file {approval_file}: {e}")
 
     # Get the offset parameter (how many chunks client already has)
