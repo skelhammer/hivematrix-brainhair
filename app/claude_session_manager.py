@@ -46,6 +46,7 @@ class ClaudeSession:
         self.logger = get_helm_logger()
         self.conversation_history = []
         self.db_session_id = db_session_id
+        self.current_process = None  # Track running Claude Code process
 
         # Load or create database session
         if db_session_id:
@@ -190,6 +191,9 @@ class ClaudeSession:
                 text=True,
                 bufsize=1,  # Line buffered
             )
+
+            # Store process reference for potential cancellation
+            self.current_process = process
 
             response_text = ""
             import time
@@ -503,8 +507,34 @@ For now, I can demonstrate the working tools:
 
 What would you like to try?"""
 
+    def stop_current_response(self):
+        """Stop the currently running Claude Code process if any."""
+        if self.current_process and self.current_process.poll() is None:
+            # Process is still running, kill it
+            self.logger.info(f"Terminating Claude Code process for session {self.session_id}")
+            import signal
+            try:
+                self.current_process.send_signal(signal.SIGTERM)
+                # Wait briefly for graceful shutdown
+                try:
+                    self.current_process.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    # Force kill if it doesn't terminate
+                    self.logger.warning(f"Force killing Claude Code process for session {self.session_id}")
+                    self.current_process.kill()
+                    self.current_process.wait()
+                self.logger.info(f"Successfully terminated Claude Code process for session {self.session_id}")
+                return True
+            except Exception as e:
+                self.logger.error(f"Error terminating process: {e}", exc_info=True)
+                return False
+        else:
+            self.logger.info(f"No active process to stop for session {self.session_id}")
+            return False
+
     def stop(self):
         """Stop/cleanup the session."""
+        self.stop_current_response()
         self.logger.info(f"Stopped Claude Code session {self.session_id}")
 
 

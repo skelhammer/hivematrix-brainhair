@@ -166,6 +166,48 @@ def poll_response(response_id):
     return jsonify(response)
 
 
+@app.route('/api/chat/stop/<response_id>', methods=['POST'])
+@token_required
+def stop_response(response_id):
+    """Stop a running Claude Code response."""
+    from app.chat_routes import session_manager
+
+    logger = get_helm_logger()
+
+    try:
+        # Check if response exists
+        if response_id not in response_buffers:
+            return jsonify({'error': 'Invalid response ID'}), 404
+
+        buffer = response_buffers[response_id]
+        session_id = buffer.get('session_id')
+
+        if not session_id:
+            return jsonify({'error': 'No session found for this response'}), 404
+
+        # Get the session and stop the current process
+        session = session_manager.get_session(session_id)
+        if session:
+            stopped = session.stop_current_response()
+            if stopped:
+                # Mark the response as done with a stop message
+                buffer['chunks'].append({
+                    'type': 'chunk',
+                    'content': '\n\n_Response stopped by user._'
+                })
+                buffer['done'] = True
+                logger.info(f"Stopped response {response_id} for session {session_id}")
+                return jsonify({'success': True, 'message': 'Response stopped'})
+            else:
+                return jsonify({'success': False, 'message': 'No active process to stop'}), 400
+        else:
+            return jsonify({'error': 'Session not found'}), 404
+
+    except Exception as e:
+        logger.error(f"Error stopping response: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
 def build_context(ticket: Optional[str], client: Optional[str], user: str) -> Dict:
     """
     Build context information for Claude.

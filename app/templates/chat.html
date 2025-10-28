@@ -75,6 +75,9 @@
                 <button class="chat__send-button" id="send-btn" onclick="sendMessage()">
                     ↑
                 </button>
+                <button class="chat__send-button chat__send-button--stop" id="stop-btn" onclick="stopResponse()" style="display: none;">
+                    ■
+                </button>
             </div>
         </div>
     </div>
@@ -83,6 +86,7 @@
         // API endpoints
         const API_CHAT = "{{ url_for('chat_message') }}";
         const API_CHAT_POLL = "{{ url_for('poll_response', response_id='RESPONSE_ID') }}".replace('RESPONSE_ID', '{response_id}');
+        const API_CHAT_STOP = "{{ url_for('stop_response', response_id='RESPONSE_ID') }}".replace('RESPONSE_ID', '{response_id}');
         const API_HISTORY = "{{ url_for('list_chat_sessions') }}";
         const API_HISTORY_GET = "{{ url_for('get_chat_session', session_id='SESSION_ID') }}".replace('SESSION_ID', '{session_id}');
         const API_HISTORY_SEARCH = "{{ url_for('search_chat_history') }}";
@@ -121,8 +125,9 @@
             // Add user message to UI
             addMessage('user', message);
 
-            // Show typing indicator
+            // Show typing indicator and stop button
             showTyping();
+            showStopButton();
 
             try {
                 // Send message to backend
@@ -140,6 +145,7 @@
 
                 if (data.error) {
                     hideTyping();
+                    hideStopButton();
                     addMessage('assistant', `❌ Error: ${data.error}`);
                     return;
                 }
@@ -152,6 +158,7 @@
 
             } catch (error) {
                 hideTyping();
+                hideStopButton();
                 addMessage('assistant', `❌ Error: ${error.message}`);
             }
         }
@@ -185,6 +192,7 @@
                     if (data.done) {
                         clearInterval(pollingInterval);
                         hideTyping();
+                        hideStopButton();
 
                         if (data.error) {
                             addMessage('assistant', `❌ Error: ${data.error}`);
@@ -193,6 +201,7 @@
                 } catch (error) {
                     clearInterval(pollingInterval);
                     hideTyping();
+                    hideStopButton();
                     addMessage('assistant', `❌ Error: ${error.message}`);
                 }
             }, 300); // Poll every 300ms
@@ -272,6 +281,48 @@
         function hideTyping() {
             const typing = document.getElementById('typing');
             typing.classList.remove('chat__typing--visible');
+        }
+
+        function showStopButton() {
+            document.getElementById('send-btn').style.display = 'none';
+            document.getElementById('stop-btn').style.display = 'flex';
+        }
+
+        function hideStopButton() {
+            document.getElementById('stop-btn').style.display = 'none';
+            document.getElementById('send-btn').style.display = 'flex';
+        }
+
+        async function stopResponse() {
+            if (!currentResponseId) {
+                console.warn('No active response to stop');
+                return;
+            }
+
+            try {
+                const url = API_CHAT_STOP.replace('{response_id}', currentResponseId);
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Stop polling
+                    if (pollingInterval) {
+                        clearInterval(pollingInterval);
+                        pollingInterval = null;
+                    }
+                    hideTyping();
+                    hideStopButton();
+                    console.log('Response stopped successfully');
+                } else {
+                    console.error('Failed to stop response:', data.message);
+                }
+            } catch (error) {
+                console.error('Error stopping response:', error);
+            }
         }
 
         function newChat() {
