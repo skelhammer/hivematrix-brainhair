@@ -164,11 +164,24 @@ def create_node(parent_path, name, content="", is_folder=False):
         "Content-Type": "application/json"
     }
 
-    # Get parent node ID
-    parent_id = get_node_id_from_path(parent_path)
-    if not parent_id:
+    # Get parent node ID and show what's there
+    print(f"Looking up parent path: {parent_path}")
+    browse_result = browse_knowledge(parent_path)
+    if not browse_result:
         print(f"ERROR: Could not find parent path: {parent_path}")
+        print(f"Tip: Use 'browse' command to see what paths exist")
         return False
+
+    parent_id = browse_result.get('current_node', {}).get('id')
+    if not parent_id:
+        print(f"ERROR: Path exists but no node ID returned: {parent_path}")
+        return False
+
+    # Show what's currently in this folder
+    children_count = len(browse_result.get('categories', [])) + len(browse_result.get('articles', []))
+    print(f"✓ Parent folder found (contains {children_count} items)")
+    if browse_result.get('articles'):
+        print(f"  Existing articles: {', '.join([a['title'] for a in browse_result.get('articles', [])])}")
 
     try:
         # Create node
