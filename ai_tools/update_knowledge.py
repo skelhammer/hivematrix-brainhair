@@ -1,26 +1,28 @@
 #!/home/david/Work/hivematrix/hivematrix-brainhair/pyenv/bin/python
 """
-Update Documentation
+Update Documentation - PRIMARY TOOL FOR KNOWLEDGETREE
 
-Smart tool to update any document in KnowledgeTree. Searches for documents
-and folders intelligently, creates if missing, updates if exists.
+🎯 USE THIS TOOL FIRST for all KnowledgeTree document operations!
+This is the simplest, most reliable way to create or update documents.
+
+IMPORTANT: Just provide the FULL PATH including filename and content - that's it!
+Do NOT use manage_knowledge.py unless this tool fails.
 
 Usage:
-    # Update any document by path
-    python update_docs.py "/Companies/Example Company/overview.md" "Content here..."
-
-    # Or just search by keywords - tool finds the best match
-    python update_docs.py "Example Company overview" "Content here..."
-
-    # Works with any folder structure
-    python update_docs.py "IT/Windows/password-reset.md" "Reset steps..."
+    # Update or create any document (use FULL path with filename!)
+    python update_docs.py "/Companies/Example Company Performance Materials/overview.md" "Content..."
+    python update_docs.py "/IT/Windows/password-reset.md" "Reset steps..."
     python update_docs.py "/Support/Ticket Templates/email-template.md" "Template..."
 
-The tool is smart:
-- Searches if you don't provide exact path
-- Creates missing folders automatically
-- Updates if document exists, creates if it doesn't
-- Shows you what it found before making changes
+Why use this tool:
+- ✅ Single simple command: path + content
+- ✅ Auto-creates missing folders
+- ✅ Updates if exists, creates if doesn't
+- ✅ Handles spaces in paths correctly
+- ✅ Clear feedback about what it's doing
+- ❌ manage_knowledge.py requires: parent_path + title + --content (confusing!)
+
+ALWAYS try update_docs.py first!
 """
 
 import sys
