@@ -2,26 +2,35 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Brain Hair - AI API Gateway</title>
+    <title>Brainhair - AI API Gateway</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
     <div class="card">
         <div class="card__header">
-            <h1 class="card__title">Brain Hair AI API Gateway</h1>
+            <h1 class="card__title">Brainhair - AI Tech Assistant</h1>
         </div>
         <div class="card__body">
-            <p><strong>Welcome, {{ user.name }}!</strong></p>
-            <p>Brain Hair provides AI-accessible APIs with automatic PHI/CJIS filtering.</p>
+            <p>Chat with Claude AI to help solve tickets, search knowledge, and manage devices.</p>
+            <a href="chat" class="btn btn--primary">
+                <span class="btn__label">
+                    <i data-lucide="message-square" class="btn__icon"></i>
+                    Open Chat Interface
+                </span>
+            </a>
+        </div>
+    </div>
 
-            <div style="margin: 2rem 0; padding: 1rem; background: #f0f7ff; border-left: 4px solid #0066cc;">
-                <h2 style="margin-top: 0;">🚀 New: AI Tech Assistant</h2>
-                <p>Chat with Claude AI to help solve tickets, search knowledge, and manage devices.</p>
-                <a href="chat" class="btn btn--primary" style="display: inline-block; margin-top: 0.5rem;">
-                    <span class="btn__label">Open Chat Interface →</span>
-                </a>
-            </div>
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
 
-            <h2>Available Endpoints</h2>
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title">Available Endpoints</h2>
+        </div>
+        <div class="card__body">
 
             <h3>KnowledgeTree Integration</h3>
             <ul>
@@ -55,14 +64,27 @@
                 <li><code>GET /api/endpoints</code> - List all endpoints (JSON)</li>
             </ul>
 
-            <h2>Data Filtering</h2>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title">Data Filtering</h2>
+        </div>
+        <div class="card__body">
             <p>All endpoints support automatic PHI/CJIS filtering via Presidio:</p>
             <ul>
                 <li>Add <code>?filter=phi</code> for PHI filtering (default)</li>
                 <li>Add <code>?filter=cjis</code> for CJIS filtering</li>
             </ul>
+        </div>
+    </div>
 
-            <h2>Authentication</h2>
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title">Authentication</h2>
+        </div>
+        <div class="card__body">
             <p>All endpoints require Bearer token authentication.</p>
             <p>Your permission level: <strong>{{ user.permission_level }}</strong></p>
         </div>

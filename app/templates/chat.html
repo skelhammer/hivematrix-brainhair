@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Brain Hair - AI Assistant</title>
+    <title>Brainhair - AI Assistant</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
     <div class="chat-history" id="chat-history">
@@ -20,7 +21,7 @@
             >
         </div>
         <div class="chat-history__list" id="history-list">
-            <div style="text-align: center; padding: 2rem; color: #7f8c8d;">
+            <div class="loading">
                 Loading...
             </div>
         </div>
@@ -28,13 +29,19 @@
 
     <div class="chat">
         <div class="chat__header">
-            <h1 class="chat__title">Brain Hair</h1>
+            <h1 class="chat__title">Brainhair</h1>
             <div class="chat__header-actions">
                 <button class="btn chat__new-button" onclick="newChat()">
-                    ➕ New Chat
+                    <span class="btn__label">
+                        <i data-lucide="plus" class="btn__icon"></i>
+                        New Chat
+                    </span>
                 </button>
                 <button class="btn chat__new-button" onclick="toggleHistory()">
-                    📜 History
+                    <span class="btn__label">
+                        <i data-lucide="history" class="btn__icon"></i>
+                        History
+                    </span>
                 </button>
             </div>
         </div>
@@ -43,7 +50,7 @@
             <div class="chat__message chat__message--assistant">
                 <div class="chat__message-avatar">🧠</div>
                 <div class="chat__message-content">
-                    <p><strong>Hello! I'm Brain Hair</strong>, your AI technical support assistant.</p>
+                    <p><strong>Hello! I'm Brainhair</strong>, your AI technical support assistant.</p>
                     <p>I can help you with:</p>
                     <ul>
                         <li>Looking up tickets and client information</li>
@@ -73,25 +80,38 @@
                     rows="1"
                 ></textarea>
                 <button class="chat__send-button" id="send-btn" onclick="sendMessage()">
-                    ↑
+                    <i data-lucide="send" class="btn__icon"></i>
                 </button>
-                <button class="chat__send-button chat__send-button--stop" id="stop-btn" onclick="stopResponse()" style="display: none;">
-                    ■
+                <button class="chat__send-button chat__send-button--stop" id="stop-btn" onclick="stopResponse()">
+                    <i data-lucide="square" class="btn__icon"></i>
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Approval Dialog -->
-    <div id="approval-dialog" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999;">
-        <div class="modal__overlay" onclick="denyApproval()"></div>
-        <div class="modal__content">
-            <h2 class="modal__title">⚠️ Approval Required</h2>
-            <div id="approval-action" class="modal__action"></div>
-            <div id="approval-details" class="modal__details"></div>
-            <div class="modal__buttons">
-                <button class="btn btn--danger" onclick="denyApproval()">✗ Deny</button>
-                <button class="btn btn--primary" onclick="approveChange()">✓ Approve</button>
+    <div id="approval-dialog" class="modal">
+        <div class="modal__dialog">
+            <div class="modal__header">
+                <h2 class="modal__title">⚠️ Approval Required</h2>
+                <button class="modal__close" onclick="denyApproval()">&times;</button>
+            </div>
+            <div class="modal__body">
+                <div id="approval-action" class="modal__action"></div>
+                <div id="approval-details" class="modal__details"></div>
+            </div>
+            <div class="modal__footer">
+                <button class="btn btn--danger" onclick="denyApproval()">
+                    <span class="btn__label">
+                        <i data-lucide="x" class="btn__icon"></i>
+                        Deny
+                    </span>
+                </button>
+                <button class="btn btn--primary" onclick="approveChange()">
+                    <span class="btn__label">
+                        <i data-lucide="check" class="btn__icon"></i>
+                        Approve
+                    </span>
+                </button>
             </div>
         </div>
     </div>
@@ -307,13 +327,13 @@
         }
 
         function showStopButton() {
-            document.getElementById('send-btn').style.display = 'none';
-            document.getElementById('stop-btn').style.display = 'flex';
+            document.getElementById('send-btn').classList.add('is-hidden');
+            document.getElementById('stop-btn').classList.add('active');
         }
 
         function hideStopButton() {
-            document.getElementById('stop-btn').style.display = 'none';
-            document.getElementById('send-btn').style.display = 'flex';
+            document.getElementById('stop-btn').classList.remove('active');
+            document.getElementById('send-btn').classList.remove('is-hidden');
         }
 
         async function stopResponse() {
@@ -371,8 +391,8 @@
             // Show dialog
             console.log('Showing approval dialog');
             const dialog = document.getElementById('approval-dialog');
-            dialog.style.display = 'block';
-            console.log('Dialog display set to block, element:', dialog);
+            dialog.classList.add('active');
+            console.log('Dialog active class added, element:', dialog);
         }
 
         async function approveChange() {
@@ -418,7 +438,7 @@
         }
 
         function hideApprovalDialog() {
-            document.getElementById('approval-dialog').style.display = 'none';
+            document.getElementById('approval-dialog').classList.remove('active');
             currentApprovalId = null;
         }
 
@@ -430,7 +450,7 @@
                 <div class="chat__message chat__message--assistant">
                     <div class="chat__message-avatar">🧠</div>
                     <div class="chat__message-content">
-                        <p><strong>Hello! I'm Brain Hair</strong>, your AI technical support assistant.</p>
+                        <p><strong>Hello! I'm Brainhair</strong>, your AI technical support assistant.</p>
                         <p>I can help you with:</p>
                         <ul>
                             <li>Looking up tickets and client information</li>
@@ -461,7 +481,7 @@
 
         async function loadHistory() {
             const listDiv = document.getElementById('history-list');
-            listDiv.innerHTML = '<div style="text-align: center; padding: 2rem; color: #7f8c8d;">Loading...</div>';
+            listDiv.innerHTML = '<div class="loading">Loading...</div>';
 
             try {
                 const response = await fetch(API_HISTORY + '?limit=50');
@@ -470,10 +490,10 @@
                 if (data.sessions && data.sessions.length > 0) {
                     displayHistorySessions(data.sessions);
                 } else {
-                    listDiv.innerHTML = '<div style="text-align: center; padding: 2rem; color: #7f8c8d;">No chat history yet</div>';
+                    listDiv.innerHTML = '<div class="empty-state">No chat history yet</div>';
                 }
             } catch (error) {
-                listDiv.innerHTML = `<div style="text-align: center; padding: 2rem; color: #e74c3c;">Error loading history</div>`;
+                listDiv.innerHTML = '<div class="alert alert--error">Error loading history</div>';
             }
         }
 
@@ -551,7 +571,7 @@
 
         async function searchHistory(query) {
             const listDiv = document.getElementById('history-list');
-            listDiv.innerHTML = '<div style="text-align: center; padding: 2rem; color: #7f8c8d;">Searching...</div>';
+            listDiv.innerHTML = '<div class="loading">Searching...</div>';
 
             try {
                 const response = await fetch(API_HISTORY_SEARCH + `?q=${encodeURIComponent(query)}`);
@@ -560,12 +580,15 @@
                 if (data.sessions && data.sessions.length > 0) {
                     displayHistorySessions(data.sessions);
                 } else {
-                    listDiv.innerHTML = '<div style="text-align: center; padding: 2rem; color: #7f8c8d;">No results found</div>';
+                    listDiv.innerHTML = '<div class="empty-state">No results found</div>';
                 }
             } catch (error) {
-                listDiv.innerHTML = '<div style="text-align: center; padding: 2rem; color: #e74c3c;">Error searching</div>';
+                listDiv.innerHTML = '<div class="alert alert--error">Error searching</div>';
             }
         }
+
+        // Initialize Lucide icons
+        lucide.createIcons();
     </script>
 </body>
 </html>

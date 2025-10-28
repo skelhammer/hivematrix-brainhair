@@ -5,6 +5,9 @@ import configparser
 
 app = Flask(__name__, instance_relative_config=True)
 
+# Enable template auto-reload for development
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+
 # --- Explicitly load all required configuration from environment variables ---
 app.config['CORE_SERVICE_URL'] = os.environ.get('CORE_SERVICE_URL')
 app.config['SERVICE_NAME'] = os.environ.get('SERVICE_NAME', 'brainhair')
