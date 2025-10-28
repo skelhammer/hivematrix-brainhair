@@ -42,23 +42,25 @@ def request_approval(action: str, details: dict, timeout: int = 120) -> bool:
         return False
 
     # Generate unique approval ID
-    approval_id = str(time.time())  # Use timestamp as simple unique ID
+    approval_id = f"{session_id}_{int(time.time() * 1000)}"  # Session ID + timestamp
 
-    # Create response file path
-    response_file = f"/tmp/brainhair_approval_{approval_id}.json"
+    # Create request and response file paths
+    request_file = f"/tmp/brainhair_approval_request_{approval_id}.json"
+    response_file = f"/tmp/brainhair_approval_response_{approval_id}.json"
 
-    # Send approval request as JSON to stdout (will be streamed to browser)
+    # Write approval request to file (chat polling will pick it up)
     approval_request = {
         'type': 'approval_request',
         'approval_id': approval_id,
+        'session_id': session_id,
         'action': action,
         'details': details
     }
 
-    # Write to stdout in JSON format (will be captured by streaming)
-    print(json.dumps(approval_request), flush=True)
+    with open(request_file, 'w') as f:
+        json.dump(approval_request, f)
 
-    # Show waiting message
+    # Show waiting message to Claude (stderr goes to logs)
     print(f"\n⏳ Waiting for user approval...", file=sys.stderr)
     print(f"   Action: {action}", file=sys.stderr)
     for key, value in details.items():
@@ -72,8 +74,10 @@ def request_approval(action: str, details: dict, timeout: int = 120) -> bool:
                 with open(response_file, 'r') as f:
                     response = json.load(f)
 
-                # Clean up file
+                # Clean up files
                 os.remove(response_file)
+                if os.path.exists(request_file):
+                    os.remove(request_file)
 
                 if response.get('approved'):
                     print("✓ User approved the change", file=sys.stderr)
@@ -84,12 +88,17 @@ def request_approval(action: str, details: dict, timeout: int = 120) -> bool:
 
             except Exception as e:
                 print(f"ERROR: Failed to read response: {e}", file=sys.stderr)
+                # Clean up request file on error
+                if os.path.exists(request_file):
+                    os.remove(request_file)
                 return False
 
         # Wait a bit before checking again
         time.sleep(0.5)
 
-    # Timeout
+    # Timeout - clean up request file
+    if os.path.exists(request_file):
+        os.remove(request_file)
     print(f"ERROR: Approval timeout after {timeout} seconds", file=sys.stderr)
     return False
 

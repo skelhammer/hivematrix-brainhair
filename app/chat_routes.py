@@ -143,11 +143,30 @@ def chat_message():
 @token_required
 def poll_response(response_id):
     """Poll for new chunks from a running Claude Code response."""
+    import glob
 
     if response_id not in response_buffers:
         return jsonify({'error': 'Invalid response ID'}), 404
 
     buffer = response_buffers[response_id]
+    session_id = buffer.get('session_id')
+
+    # Check for approval request files and inject them into the stream
+    if session_id:
+        approval_files = glob.glob(f"/tmp/brainhair_approval_request_{session_id}_*.json")
+        for approval_file in approval_files:
+            try:
+                with open(approval_file, 'r') as f:
+                    approval_data = json.load(f)
+
+                # Add to buffer if not already added
+                if not any(chunk.get('approval_id') == approval_data.get('approval_id') for chunk in buffer['chunks']):
+                    buffer['chunks'].append(approval_data)
+                    logger = get_helm_logger()
+                    logger.info(f"Injected approval request into stream: {approval_data.get('approval_id')}")
+            except Exception as e:
+                logger = get_helm_logger()
+                logger.error(f"Error reading approval file {approval_file}: {e}")
 
     # Get the offset parameter (how many chunks client already has)
     offset = int(request.args.get('offset', 0))
@@ -160,7 +179,7 @@ def poll_response(response_id):
         'offset': len(buffer['chunks']),
         'done': buffer['done'],
         'error': buffer['error'],
-        'session_id': buffer.get('session_id')
+        'session_id': session_id
     }
 
     # Clean up buffer if done and client has received all chunks
@@ -785,7 +804,7 @@ def respond_to_approval(approval_id):
         approved = data.get('approved', False)
 
         # Write response to file that the tool is polling
-        response_file = f"/tmp/brainhair_approval_{approval_id}.json"
+        response_file = f"/tmp/brainhair_approval_response_{approval_id}.json"
         with open(response_file, 'w') as f:
             json.dump({'approved': approved}, f)
 
