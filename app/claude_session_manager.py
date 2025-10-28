@@ -241,6 +241,12 @@ class ClaudeSession:
                     event_type = event.get('type')
                     self.logger.debug(f"[STREAM] Line {line_count} parsed as JSON, type: {event_type}")
 
+                    # Check if this is a custom approval request from a tool
+                    if event_type == 'approval_request':
+                        self.logger.info(f"[STREAM] Approval request detected: {event}")
+                        yield json.dumps(event)
+                        continue
+
                     # Unwrap stream_event wrapper
                     if event_type == 'stream_event':
                         inner_event = event.get('event', {})
