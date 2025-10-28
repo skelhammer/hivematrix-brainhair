@@ -184,29 +184,36 @@ def import_features(features_data):
         try:
             # Check if feature exists
             response = requests.get(
-                f"{CODEX_URL}/api/features",
-                params={'feature_type': feature_data['feature_type'], 'value': feature_data['value']},
+                f"{CODEX_URL}/api/feature-options",
+                params={'category': feature_data['feature_type']},
                 headers=headers,
                 timeout=5
             )
 
-            if response.status_code == 200 and response.json():
+            # Check if this specific value already exists
+            exists = False
+            if response.status_code == 200:
+                existing_features = response.json()
+                exists = any(f['option_value'] == feature_data['value'] for f in existing_features)
+
+            if exists:
                 # Feature exists, skip
                 print(f"  Exists: {feature_data['feature_type']}: {feature_data['value']}")
                 imported_count += 1
             else:
                 # Feature doesn't exist, create it
                 response = requests.post(
-                    f"{CODEX_URL}/api/features",
+                    f"{CODEX_URL}/api/feature-options",
                     json=feature_data,
                     headers=headers,
                     timeout=5
                 )
-                if response.status_code == 201:
+                if response.status_code in [200, 201]:
                     print(f"✓ Created: {feature_data['feature_type']}: {feature_data['value']}")
                     imported_count += 1
                 else:
                     print(f"✗ Failed to create: {feature_data['feature_type']}: {feature_data['value']}")
+                    print(f"   Status: {response.status_code}, Response: {response.text}")
                     failed_count += 1
 
         except Exception as e:
