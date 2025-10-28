@@ -147,6 +147,19 @@ class ClaudeSession:
                         # Get first line (summary)
                         summary = docstring.split('\n')[0].strip()
 
+                        # Extract IMPORTANT notes (for critical instructions)
+                        important_notes = []
+                        for line in docstring.split('\n'):
+                            if 'IMPORTANT:' in line or line.strip().startswith('IMPORTANT'):
+                                # Capture this line and following bullet points
+                                important_notes.append(line.strip())
+                            elif important_notes and (line.strip().startswith('-') or line.strip().startswith('•')):
+                                important_notes.append(line.strip())
+                            elif important_notes and line.strip() and not line.strip().startswith(('Usage:', 'Example:')):
+                                important_notes.append(line.strip())
+                            elif important_notes and not line.strip():
+                                break  # End of important section
+
                         # Extract usage examples
                         usage_lines = []
                         in_usage = False
@@ -164,6 +177,7 @@ class ClaudeSession:
                         tool_files.append({
                             'name': filename,
                             'summary': summary,
+                            'important': important_notes[:5] if important_notes else [],  # Up to 5 important lines
                             'usage': usage_lines[:2] if usage_lines else []
                         })
                 except Exception as e:
@@ -202,6 +216,14 @@ class ClaudeSession:
                 tools_doc.append("")
                 for tool in tools:
                     tools_doc.append(f"**{tool['name']}** - {tool['summary']}")
+
+                    # Add important notes if present
+                    if tool.get('important'):
+                        tools_doc.append("")
+                        for note in tool['important']:
+                            tools_doc.append(note)
+                        tools_doc.append("")
+
                     if tool['usage']:
                         tools_doc.append("```bash")
                         for usage in tool['usage']:
