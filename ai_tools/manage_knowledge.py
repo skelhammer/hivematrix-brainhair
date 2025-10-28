@@ -126,28 +126,19 @@ def get_node_id_from_path(path):
     if path == "/" or path == "root":
         return "root"
 
-    # Browse to find the node
-    parts = path.strip('/').split('/')
-    current_id = "root"
+    # Simply browse to the full path - the API will find it
+    browse_result = browse_knowledge(path)
+    if not browse_result:
+        print(f"ERROR: Could not browse to path: {path}")
+        return None
 
-    for part in parts:
-        browse_result = browse_knowledge(f"/{'/'.join(parts[:parts.index(part)])}")
-        if not browse_result:
-            return None
+    # Get the current node ID from the browse result
+    current_node = browse_result.get('current_node')
+    if current_node and current_node.get('id'):
+        return current_node['id']
 
-        # Find child with this name
-        found = False
-        for child in browse_result.get('children', []):
-            if child['name'] == part:
-                current_id = child['id']
-                found = True
-                break
-
-        if not found:
-            print(f"ERROR: Could not find '{part}' in path")
-            return None
-
-    return current_id
+    print(f"ERROR: Path exists but no node ID returned: {path}")
+    return None
 
 
 def create_node(parent_path, name, content="", is_folder=False):
