@@ -98,6 +98,11 @@ class ClaudeSession:
             with open(system_prompt_path, 'r') as f:
                 self.system_prompt = f.read()
 
+        # Add available AI tools to system prompt
+        ai_tools_info = self._discover_ai_tools()
+        if ai_tools_info:
+            self.system_prompt += f"\n\n{ai_tools_info}"
+
         # Add context to system prompt
         context_info = f"""
 
@@ -110,6 +115,104 @@ class ClaudeSession:
         self.system_prompt += context_info
 
         self.logger.info(f"Created Claude Code session {self.session_id} for user {self.user}")
+
+    def _discover_ai_tools(self):
+        """Discover available AI tools and generate documentation."""
+        ai_tools_dir = os.path.join(os.path.dirname(__file__), '..', 'ai_tools')
+
+        if not os.path.exists(ai_tools_dir):
+            return ""
+
+        tools_doc = ["## 🔧 Available AI Tools (Auto-Discovered)", ""]
+        tools_doc.append("The following tools are available in `/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/`:")
+        tools_doc.append("")
+
+        # Scan for Python files
+        tool_files = []
+        for filename in sorted(os.listdir(ai_tools_dir)):
+            if filename.endswith('.py') and not filename.startswith('_') and filename != 'approval_helper.py':
+                tool_path = os.path.join(ai_tools_dir, filename)
+
+                # Extract docstring from file
+                try:
+                    with open(tool_path, 'r') as f:
+                        content = f.read()
+
+                    # Extract first docstring
+                    import re
+                    docstring_match = re.search(r'"""(.*?)"""', content, re.DOTALL)
+
+                    if docstring_match:
+                        docstring = docstring_match.group(1).strip()
+                        # Get first line (summary)
+                        summary = docstring.split('\n')[0].strip()
+
+                        # Extract usage examples
+                        usage_lines = []
+                        in_usage = False
+                        for line in docstring.split('\n'):
+                            if 'Usage:' in line:
+                                in_usage = True
+                                continue
+                            if in_usage:
+                                if line.strip() and not line.strip().startswith('#'):
+                                    if 'python' in line:
+                                        usage_lines.append(line.strip())
+                                if len(usage_lines) >= 2:  # Limit to 2 examples
+                                    break
+
+                        tool_files.append({
+                            'name': filename,
+                            'summary': summary,
+                            'usage': usage_lines[:2] if usage_lines else []
+                        })
+                except Exception as e:
+                    # Skip files we can't parse
+                    continue
+
+        if not tool_files:
+            return ""
+
+        # Group tools by category
+        categories = {
+            'Billing & Plans': [],
+            'Knowledge Management': [],
+            'Companies & Tickets': [],
+            'Network Equipment': [],
+            'Other': []
+        }
+
+        for tool in tool_files:
+            name = tool['name']
+            if any(x in name for x in ['billing', 'plan', 'feature']):
+                categories['Billing & Plans'].append(tool)
+            elif 'knowledge' in name:
+                categories['Knowledge Management'].append(tool)
+            elif any(x in name for x in ['company', 'companies', 'ticket', 'device']):
+                categories['Companies & Tickets'].append(tool)
+            elif 'network' in name or 'equipment' in name:
+                categories['Network Equipment'].append(tool)
+            else:
+                categories['Other'].append(tool)
+
+        # Generate documentation
+        for category, tools in categories.items():
+            if tools:
+                tools_doc.append(f"### {category}")
+                tools_doc.append("")
+                for tool in tools:
+                    tools_doc.append(f"**{tool['name']}** - {tool['summary']}")
+                    if tool['usage']:
+                        tools_doc.append("```bash")
+                        for usage in tool['usage']:
+                            tools_doc.append(usage)
+                        tools_doc.append("```")
+                    tools_doc.append("")
+
+        tools_doc.append("**Note:** All tools are pre-approved for data retrieval. Write operations require user approval via the approval dialog.")
+        tools_doc.append("")
+
+        return '\n'.join(tools_doc)
 
     def start(self):
         """Session is ready to use - no persistent process needed."""
