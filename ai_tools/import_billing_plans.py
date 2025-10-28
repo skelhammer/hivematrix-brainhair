@@ -2,12 +2,16 @@
 """
 Import Billing Plans from JSON
 
-Imports billing plans, features, and users from a JSON configuration file.
+Imports billing plans, features, and users from a JSON configuration.
 This is used to bulk-load default billing plans into Codex.
 
 Usage:
-    python import_billing_plans.py <json_file_path>
+    # From file
     python import_billing_plans.py plans_config.json
+
+    # From stdin (paste JSON directly)
+    python import_billing_plans.py --stdin
+    echo '{"default_plans_data": [...]}' | python import_billing_plans.py --stdin
 
 JSON Format:
 {
@@ -214,24 +218,40 @@ def import_features(features_data):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python import_billing_plans.py <json_file_path>")
+        print("Usage:")
+        print("  From file:  python import_billing_plans.py <json_file_path>")
+        print("  From stdin: python import_billing_plans.py --stdin")
         print("\nExample: python import_billing_plans.py plans_config.json")
         sys.exit(1)
 
-    json_file_path = sys.argv[1]
+    # Load JSON from stdin or file
+    config = None
 
-    # Check if file exists
-    if not os.path.exists(json_file_path):
-        print(f"ERROR: File not found: {json_file_path}")
-        sys.exit(1)
+    if sys.argv[1] == '--stdin':
+        # Read from stdin
+        try:
+            print("Reading JSON from stdin...")
+            json_data = sys.stdin.read()
+            config = json.loads(json_data)
+        except Exception as e:
+            print(f"ERROR: Could not parse JSON from stdin: {e}")
+            sys.exit(1)
+    else:
+        # Read from file
+        json_file_path = sys.argv[1]
 
-    # Load JSON file
-    try:
-        with open(json_file_path, 'r') as f:
-            config = json.load(f)
-    except Exception as e:
-        print(f"ERROR: Could not load JSON file: {e}")
-        sys.exit(1)
+        # Check if file exists
+        if not os.path.exists(json_file_path):
+            print(f"ERROR: File not found: {json_file_path}")
+            sys.exit(1)
+
+        # Load JSON file
+        try:
+            with open(json_file_path, 'r') as f:
+                config = json.load(f)
+        except Exception as e:
+            print(f"ERROR: Could not load JSON file: {e}")
+            sys.exit(1)
 
     # Validate JSON structure
     if 'default_plans_data' not in config:
@@ -248,14 +268,21 @@ def main():
     print()
 
     # Request approval
+    approval_details = {
+        'Billing Plans': str(len(plans_data)),
+        'Features': str(len(features_data)),
+        'Action': 'Create/Update plans and features in Codex'
+    }
+
+    # Add source info
+    if sys.argv[1] == '--stdin':
+        approval_details['Source'] = 'Pasted JSON data'
+    else:
+        approval_details['Source'] = f'File: {sys.argv[1]}'
+
     approved = request_approval(
         f"Import {len(plans_data)} billing plans and {len(features_data)} features",
-        {
-            'File': json_file_path,
-            'Billing Plans': str(len(plans_data)),
-            'Features': str(len(features_data)),
-            'Action': 'Create/Update plans and features in Codex'
-        }
+        approval_details
     )
 
     if not approved:
