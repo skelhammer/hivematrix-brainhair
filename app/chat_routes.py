@@ -595,9 +595,6 @@ def update_session_title(session_id):
     logger = get_helm_logger()
 
     try:
-        user = g.user
-        user_id = user.get('preferred_username')
-
         # Get request data
         data = request.get_json()
         if not data or 'title' not in data:
@@ -613,9 +610,15 @@ def update_session_title(session_id):
         if not session:
             return jsonify({'error': 'Session not found'}), 404
 
-        # Verify ownership
-        if session.user_id != user_id:
-            return jsonify({'error': 'Unauthorized'}), 403
+        # Verify ownership (only for user calls, service calls are trusted)
+        if not g.is_service_call:
+            user = g.user
+            if not user:
+                return jsonify({'error': 'Unauthorized'}), 401
+
+            user_id = user.get('preferred_username')
+            if session.user_id != user_id:
+                return jsonify({'error': 'Unauthorized'}), 403
 
         # Update title
         session.title = title
