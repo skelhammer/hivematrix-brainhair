@@ -16,8 +16,11 @@
             <h2>Response from API:</h2>
             <pre>{{ api_response | tojson(indent=2) }}</pre>
 
-            <button class="btn btn--primary" onclick="window.location.href='/'">
-                <span class="btn__label">Back to Home</span>
+            <button class="btn" onclick="window.location.href='/'">
+                <span class="btn__label">
+                    <i data-lucide="arrow-left" class="btn__icon"></i>
+                    Back to Home
+                </span>
             </button>
         </div>
     </div>

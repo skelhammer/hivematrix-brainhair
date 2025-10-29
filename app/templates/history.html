@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat History - Brainhair</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="card u-mb-3">
+        <div class="card__header">
+            <h1 class="card__title">Chat History</h1>
+            <div class="card__header-actions">
+                <button class="btn" onclick="window.location.href='{{ url_for('index') }}'">
+                    <span class="btn__label">
+                        <i data-lucide="arrow-left" class="btn__icon"></i>
+                        Back to Home
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card__body">
+            <div class="form-group u-mb-3">
+                <input
+                    type="text"
+                    class="form-group__input"
+                    id="history-search"
+                    placeholder="Search conversations..."
+                >
+            </div>
+
+            <div id="history-list">
+                <div class="loading">Loading chat history...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_HISTORY = "{{ url_for('list_chat_sessions') }}";
+        const API_HISTORY_GET = "{{ url_for('get_chat_session', session_id='SESSION_ID') }}".replace('SESSION_ID', '{session_id}');
+        const API_HISTORY_SEARCH = "{{ url_for('search_chat_history') }}";
+        const API_CHAT_PAGE = "{{ url_for('chat_interface') }}";
+
+        async function loadHistory() {
+            const listDiv = document.getElementById('history-list');
+            listDiv.innerHTML = '<div class="loading">Loading...</div>';
+
+            try {
+                const response = await fetch(API_HISTORY + '?limit=50', {
+                    credentials: 'same-origin'
+                });
+                const data = await response.json();
+
+                if (data.sessions && data.sessions.length > 0) {
+                    displayHistorySessions(data.sessions);
+                } else {
+                    listDiv.innerHTML = '<div class="empty-state">No chat history yet</div>';
+                }
+            } catch (error) {
+                listDiv.innerHTML = '<div class="alert alert--error">Error loading history: ' + error.message + '</div>';
+            }
+        }
+
+        function displayHistorySessions(sessions) {
+            const listDiv = document.getElementById('history-list');
+            listDiv.innerHTML = '';
+
+            sessions.forEach(session => {
+                const card = document.createElement('div');
+                card.className = 'history-card';
+                card.onclick = () => resumeSession(session.id);
+
+                const date = new Date(session.created_at);
+                const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+
+                // Use summary or title as preview
+                let preview = '';
+                if (session.summary) {
+                    preview = session.summary.length > 150 ? session.summary.substring(0, 150) + '...' : session.summary;
+                } else if (session.title && session.title !== 'Chat Session') {
+                    preview = session.title;
+                }
+
+                // Build metadata
+                const metaParts = [];
+                if (session.ticket_number) {
+                    metaParts.push(`Ticket #${session.ticket_number}`);
+                }
+                if (session.client_name) {
+                    metaParts.push(session.client_name);
+                }
+                if (session.message_count) {
+                    metaParts.push(`${session.message_count} messages`);
+                }
+
+                card.innerHTML = `
+                    <div class="history-card__header">
+                        <h3 class="history-card__title">${session.title || 'Chat Session'}</h3>
+                        <span class="history-card__date">${dateStr}</span>
+                    </div>
+                    ${preview ? `<div class="history-card__preview">${preview}</div>` : ''}
+                    ${metaParts.length > 0 ? `<div class="history-card__meta">${metaParts.join(' • ')}</div>` : ''}
+                `;
+
+                listDiv.appendChild(card);
+            });
+        }
+
+        function resumeSession(dbSessionId) {
+            // Redirect to chat page with session ID parameter
+            window.location.href = API_CHAT_PAGE + '?session=' + dbSessionId;
+        }
+
+        // Search with debounce
+        let searchTimeout;
+        document.getElementById('history-search').addEventListener('input', function(e) {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                const query = e.target.value.trim();
+                if (query) {
+                    searchHistory(query);
+                } else {
+                    loadHistory();
+                }
+            }, 300);
+        });
+
+        async function searchHistory(query) {
+            const listDiv = document.getElementById('history-list');
+            listDiv.innerHTML = '<div class="loading">Searching...</div>';
+
+            try {
+                const response = await fetch(API_HISTORY_SEARCH + `?q=${encodeURIComponent(query)}`, {
+                    credentials: 'same-origin'
+                });
+                const data = await response.json();
+
+                if (data.sessions && data.sessions.length > 0) {
+                    displayHistorySessions(data.sessions);
+                } else {
+                    listDiv.innerHTML = '<div class="empty-state">No results found</div>';
+                }
+            } catch (error) {
+                listDiv.innerHTML = '<div class="alert alert--error">Error searching: ' + error.message + '</div>';
+            }
+        }
+
+        // Load history on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadHistory();
+            lucide.createIcons();
+        });
+    </script>
+
+    <style>
+        .history-card {
+            border: 1px solid var(--color-border-light);
+            border-radius: 8px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: var(--color-surface);
+        }
+
+        .history-card:hover {
+            background: var(--color-hover-bg);
+            transform: translateX(4px);
+            border-color: var(--color-primary);
+        }
+
+        .history-card__header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 0.75rem;
+        }
+
+        .history-card__title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--color-primary);
+            margin: 0;
+        }
+
+        .history-card__date {
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+            white-space: nowrap;
+        }
+
+        .history-card__preview {
+            color: var(--color-text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 0.5rem;
+            line-height: 1.4;
+        }
+
+        .history-card__meta {
+            font-size: 0.85rem;
+            color: var(--color-text-muted);
+            margin-top: 0.5rem;
+        }
+
+        [data-theme="dark"] .history-card {
+            border-color: var(--color-border-medium);
+        }
+
+        [data-theme="dark"] .history-card:hover {
+            border-color: var(--color-primary);
+        }
+    </style>
+</body>
+</html>

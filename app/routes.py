@@ -60,6 +60,27 @@ def index():
     return render_template('index.html', user=user)
 
 
+@app.route('/history')
+@token_required
+def history_page():
+    """
+    Renders the chat history page.
+    """
+    logger = get_helm_logger()
+
+    if g.is_service_call:
+        logger.warning(f"Service {g.service} attempted to access user-only endpoint /history")
+        return jsonify({
+            'error': 'This endpoint is for users only',
+            'service': g.service
+        }), 403
+
+    user = g.user
+    logger.info(f"User {user.get('preferred_username')} accessed chat history page")
+
+    return render_template('history.html', user=user)
+
+
 # ==================== KnowledgeTree Integration ====================
 
 @app.route('/api/knowledge/search', methods=['GET'])
@@ -1179,6 +1200,15 @@ def health():
         'status': 'healthy',
         'service': 'brainhair',
         'version': '1.0.0'
+    })
+
+
+@app.route('/health', methods=['GET'])
+def public_health():
+    """Public health check endpoint (no auth required)."""
+    return jsonify({
+        'status': 'healthy',
+        'service': 'brainhair'
     })
 
 

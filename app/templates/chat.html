@@ -7,40 +7,20 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
-    <div class="chat-history" id="chat-history">
-        <div class="chat-history__header">
-            <h2 class="chat-history__title">Chat History</h2>
-            <button class="chat-history__close" onclick="closeHistory()">&times;</button>
-        </div>
-        <div class="chat-history__search">
-            <input
-                type="text"
-                class="chat-history__search-input"
-                id="history-search"
-                placeholder="Search conversations..."
-            >
-        </div>
-        <div class="chat-history__list" id="history-list">
-            <div class="loading">
-                Loading...
-            </div>
-        </div>
-    </div>
-
     <div class="chat">
         <div class="chat__header">
             <h1 class="chat__title">Brainhair</h1>
             <div class="chat__header-actions">
+                <button class="btn" onclick="window.location.href='{{ url_for('index') }}'">
+                    <span class="btn__label">
+                        <i data-lucide="arrow-left" class="btn__icon"></i>
+                        Back to Dashboard
+                    </span>
+                </button>
                 <button class="btn chat__new-button" onclick="newChat()">
                     <span class="btn__label">
                         <i data-lucide="plus" class="btn__icon"></i>
                         New Chat
-                    </span>
-                </button>
-                <button class="btn chat__new-button" onclick="toggleHistory()">
-                    <span class="btn__label">
-                        <i data-lucide="history" class="btn__icon"></i>
-                        History
                     </span>
                 </button>
             </div>
@@ -464,131 +444,51 @@
             `;
         }
 
-        // ==================== History Functions ====================
+        // Check for session parameter in URL and load session if present
+        async function loadSessionFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const sessionParam = urlParams.get('session');
 
-        function toggleHistory() {
-            const history = document.getElementById('chat-history');
-            history.classList.toggle('open');
+            if (sessionParam) {
+                try {
+                    const url = API_HISTORY_GET.replace('{session_id}', sessionParam);
+                    const response = await fetch(url);
+                    const data = await response.json();
 
-            if (history.classList.contains('open')) {
-                loadHistory();
+                    if (data.error) {
+                        console.error('Error loading session:', data.error);
+                        return;
+                    }
+
+                    // Clear current chat
+                    const messagesDiv = document.getElementById('messages');
+                    messagesDiv.innerHTML = '';
+
+                    // Load messages
+                    if (data.messages) {
+                        data.messages.forEach(msg => {
+                            addMessage(msg.role, msg.content);
+                        });
+                    }
+
+                    // Set session IDs
+                    currentDbSessionId = sessionParam;
+                    sessionId = null; // Will be created on next message
+
+                    // Clear URL parameter
+                    window.history.replaceState({}, document.title, window.location.pathname);
+
+                } catch (error) {
+                    console.error('Error resuming session:', error.message);
+                }
             }
         }
 
-        function closeHistory() {
-            document.getElementById('chat-history').classList.remove('open');
-        }
-
-        async function loadHistory() {
-            const listDiv = document.getElementById('history-list');
-            listDiv.innerHTML = '<div class="loading">Loading...</div>';
-
-            try {
-                const response = await fetch(API_HISTORY + '?limit=50');
-                const data = await response.json();
-
-                if (data.sessions && data.sessions.length > 0) {
-                    displayHistorySessions(data.sessions);
-                } else {
-                    listDiv.innerHTML = '<div class="empty-state">No chat history yet</div>';
-                }
-            } catch (error) {
-                listDiv.innerHTML = '<div class="alert alert--error">Error loading history</div>';
-            }
-        }
-
-        function displayHistorySessions(sessions) {
-            const listDiv = document.getElementById('history-list');
-            listDiv.innerHTML = '';
-
-            sessions.forEach(session => {
-                const item = document.createElement('div');
-                item.className = 'chat-history__item';
-                item.onclick = () => resumeSession(session.id);
-
-                const date = new Date(session.created_at);
-                const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-
-                item.innerHTML = `
-                    <div class="chat-history__item-title">${session.title || 'Chat Session'}</div>
-                    <div class="chat-history__item-meta">
-                        <span>${dateStr}</span>
-                        ${session.ticket_number ? `<span>Ticket #${session.ticket_number}</span>` : ''}
-                    </div>
-                `;
-
-                listDiv.appendChild(item);
-            });
-        }
-
-        async function resumeSession(dbSessionId) {
-            try {
-                const url = API_HISTORY_GET.replace('{session_id}', dbSessionId);
-                const response = await fetch(url);
-                const data = await response.json();
-
-                if (data.error) {
-                    alert('Error loading session: ' + data.error);
-                    return;
-                }
-
-                // Clear current chat
-                const messagesDiv = document.getElementById('messages');
-                messagesDiv.innerHTML = '';
-
-                // Load messages
-                if (data.messages) {
-                    data.messages.forEach(msg => {
-                        addMessage(msg.role, msg.content);
-                    });
-                }
-
-                // Set session IDs
-                currentDbSessionId = dbSessionId;
-                sessionId = null; // Will be created on next message
-
-                // Close history
-                closeHistory();
-
-            } catch (error) {
-                alert('Error resuming session: ' + error.message);
-            }
-        }
-
-        // Search with debounce
-        let searchTimeout;
-        document.getElementById('history-search').addEventListener('input', function(e) {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                const query = e.target.value.trim();
-                if (query) {
-                    searchHistory(query);
-                } else {
-                    loadHistory();
-                }
-            }, 300);
+        // Initialize Lucide icons and load session if URL parameter present
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            loadSessionFromUrl();
         });
-
-        async function searchHistory(query) {
-            const listDiv = document.getElementById('history-list');
-            listDiv.innerHTML = '<div class="loading">Searching...</div>';
-
-            try {
-                const response = await fetch(API_HISTORY_SEARCH + `?q=${encodeURIComponent(query)}`);
-                const data = await response.json();
-
-                if (data.sessions && data.sessions.length > 0) {
-                    displayHistorySessions(data.sessions);
-                } else {
-                    listDiv.innerHTML = '<div class="empty-state">No results found</div>';
-                }
-            } catch (error) {
-                listDiv.innerHTML = '<div class="alert alert--error">Error searching</div>';
-            }
-        }
-
-        // Initialize Lucide icons
-        lucide.createIcons();
     </script>
 </body>
 </html>
