@@ -5,6 +5,11 @@ import configparser
 
 app = Flask(__name__, instance_relative_config=True)
 
+# Configure logging level from environment
+import logging
+log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
+app.logger.setLevel(getattr(logging, log_level, logging.INFO))
+
 # Enable template auto-reload for development
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 
