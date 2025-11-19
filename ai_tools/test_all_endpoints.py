@@ -39,7 +39,7 @@ def test_endpoint(client, endpoint, params=None, description=""):
                 else:
                     print(json_str)
                 return data
-            except:
+            except Exception:
                 print(f"Response text: {response.text[:500]}")
                 return None
         else:
