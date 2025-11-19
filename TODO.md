@@ -101,9 +101,9 @@ Brain Hair v2.0 with Claude Code integration is complete and ready for end-to-en
 - [x] **Command Status Tracking** - GET endpoint for command execution status
 - [x] **PHI/CJIS Filtering** - All responses automatically filtered
 
-### Chat UI for SSE Streaming ✅ NEW!
-- [x] **Updated JavaScript to handle Server-Sent Events**
-  - Fetch API with ReadableStream for SSE parsing
+### Chat UI for Polling ✅ NEW!
+- [x] **Updated JavaScript to handle streaming responses via polling**
+  - Fetch API with a polling loop to get chunks
   - Handle different message types (chunk, command_approval, done, error, session_id)
   - Store and reuse session_id across messages
   - Display streaming text in real-time
