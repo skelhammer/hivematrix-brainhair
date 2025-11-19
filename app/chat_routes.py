@@ -12,8 +12,12 @@ from .helm_logger import get_helm_logger
 from .claude_session_manager import get_session_manager
 import json
 import uuid
+import time
 from typing import Dict, List, Any, Optional
 import os
+
+# TTL for response buffers (1 hour)
+RESPONSE_BUFFER_TTL = 3600
 
 # Store pending commands (in production, use Redis or database)
 pending_commands = {}
@@ -46,6 +50,17 @@ def chat_interface():
 
 # Store for polling-based responses
 response_buffers = {}
+
+def cleanup_old_response_buffers():
+    """Remove response buffers older than TTL to prevent memory leak."""
+    current_time = time.time()
+    expired = [
+        rid for rid, buf in response_buffers.items()
+        if current_time - buf.get('created_at', 0) > RESPONSE_BUFFER_TTL
+    ]
+    for rid in expired:
+        del response_buffers[rid]
+    return len(expired)
 
 @app.route('/api/chat', methods=['POST'])
 @token_required
@@ -91,6 +106,9 @@ def chat_message():
         # Generate unique response ID
         response_id = str(uuid.uuid4())
 
+        # Cleanup old buffers periodically to prevent memory leak
+        cleanup_old_response_buffers()
+
         # Initialize response buffer
         # Store db_session_id for approval file matching
         db_session_id = session.db_session_id if hasattr(session, 'db_session_id') else None
@@ -98,6 +116,7 @@ def chat_message():
             'chunks': [],
             'done': False,
             'error': None,
+            'created_at': time.time(),
             'session_id': session_id,
             'db_session_id': db_session_id
         }
