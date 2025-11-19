@@ -36,6 +36,14 @@ app.config['SQLALCHEMY_DATABASE_URI'] = config.get('database', 'connection_strin
     fallback=f"sqlite:///{os.path.join(app.instance_path, 'brainhair.db')}")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Connection pool configuration for better performance
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_size': 10,
+    'pool_recycle': 3600,  # Recycle connections after 1 hour
+    'pool_pre_ping': True,  # Test connections before use
+    'max_overflow': 5,
+}
+
 # Initialize database
 from extensions import db
 db.init_app(app)
