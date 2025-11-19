@@ -41,7 +41,7 @@ def get_service_token(target_service):
         if response.status_code == 200:
             return response.json()["token"]
         return None
-    except:
+    except Exception:
         return None
 
 
@@ -196,7 +196,7 @@ def get_billing(account_number):
         if response.status_code == 200:
             return response.json()
         return None
-    except:
+    except Exception:
         return None
 
 

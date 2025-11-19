@@ -50,7 +50,7 @@ def get_service_token(target_service):
         if response.status_code == 200:
             return response.json()["token"]
         return None
-    except:
+    except Exception:
         return None
 
 def find_company(search_term):

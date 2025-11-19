@@ -152,5 +152,5 @@ if __name__ == "__main__":
     if response.status_code == 200:
         try:
             print(json.dumps(response.json(), indent=2))
-        except:
+        except Exception:
             print(f"Response: {response.text[:200]}")
