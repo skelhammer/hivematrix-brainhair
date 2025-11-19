@@ -32,7 +32,7 @@ def get_service_token(target_service):
         if response.status_code == 200:
             return response.json()["token"]
         return None
-    except:
+    except Exception:
         return None
 
 def find_company(search_term):
@@ -62,7 +62,7 @@ def find_company(search_term):
                 return company
 
         return None
-    except:
+    except Exception:
         return None
 
 def get_billing(account_number):
@@ -82,7 +82,7 @@ def get_billing(account_number):
         if response.status_code == 200:
             return response.json()
         return None
-    except:
+    except Exception:
         return None
 
 def format_billing(billing_data):
