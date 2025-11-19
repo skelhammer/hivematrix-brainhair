@@ -323,7 +323,7 @@ class ClaudeSession:
             response_text = ""
             import time
             last_output_time = time.time()
-            idle_timeout = 30  # seconds without output before we give up
+            idle_timeout = 120  # seconds without output before we give up (increased for tool operations)
             self._last_stop_reason = None  # Track stop reason for tool_use detection
 
             # Track current tool usage for displaying details

@@ -91,6 +91,11 @@ class ChatMessage(db.Model):
     # Relationships
     session = db.relationship('ChatSession', back_populates='messages')
 
+    # Composite index for efficient session message queries
+    __table_args__ = (
+        db.Index('idx_message_session_created', 'session_id', 'created_at'),
+    )
+
     def __repr__(self):
         return f'<ChatMessage {self.id} session={self.session_id} role={self.role}>'
 
