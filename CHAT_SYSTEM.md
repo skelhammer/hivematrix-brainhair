@@ -84,35 +84,51 @@ Content-Type: application/json
 
 {
   "message": "user message",
+  "session_id": "existing_session_id" or null,
+  "db_session_id": "database_session_id" or null,
   "ticket": "12345" or null,
-  "client": "Acme Corp" or null,
-  "history": [
-    {"role": "user", "content": "previous message"},
-    {"role": "assistant", "content": "previous response"}
-  ]
+  "client": "Acme Corp" or null
 }
 ```
 
 Response:
 ```json
 {
-  "response": "Claude's response message",
-  "command_request": {  // Optional
-    "id": "uuid",
-    "device": "WORKSTATION-001",
-    "command": "Get-ComputerInfo | Select-Object ...",
-    "reason": "Check system information for troubleshooting"
-  }
+  "response_id": "unique_id_for_this_response",
+  "session_id": "current_session_id"
+}
+```
+
+### Poll for Response
+```
+GET /api/chat/poll/<response_id>?offset=<chunk_offset>
+```
+The client polls this endpoint to get streamed chunks of the response.
+
+Response:
+```json
+{
+  "chunks": [
+    {"type": "chunk", "content": "streaming text"},
+    {"type": "thinking", "action": "Performing some action"},
+    {"type": "approval_request", "approval_id": "...", "action": "...", "details": {}}
+  ],
+  "offset": 10,
+  "done": false,
+  "error": null,
+  "session_id": "current_session_id"
 }
 ```
 
 ### Approve Command
+The command approval flow is handled via a file-based polling mechanism. When a tool needs approval, it writes a request file. The browser polls for this request and displays a dialog. When the user responds, the browser writes the response to another file, which the tool is polling.
+
 ```
-POST /api/chat/command/approve
+POST /api/approval/respond/<approval_id>
 Content-Type: application/json
 
 {
-  "command_id": "uuid"
+  "approved": true
 }
 ```
 
@@ -120,17 +136,7 @@ Response:
 ```json
 {
   "status": "success",
-  "output": "Command output here..."
-}
-```
-
-### Deny Command
-```
-POST /api/chat/command/deny
-Content-Type: application/json
-
-{
-  "command_id": "uuid"
+  "approved": true
 }
 ```
 
@@ -242,10 +248,16 @@ Claude: Acme Corp has 47 devices:
 
 ## Technical Architecture
 
+### Claude Code Invocation
+The backend invokes the `claude` command-line tool for each message using `subprocess.Popen`. A detailed system prompt is dynamically generated and passed to the tool. This prompt includes the conversation history, the current context (technician, ticket, client), and documentation for all discovered AI tools.
+
+### Dynamic Tool Discovery
+The system dynamically discovers AI tools by scanning the `ai_tools` directory. For each Python file in this directory, it extracts the docstring and uses it to generate documentation for the AI. This allows developers to add new tools by simply dropping a Python file with a well-formed docstring into the `ai_tools` directory.
+
 ### Frontend (`chat.html`)
 - Vanilla JavaScript (no framework dependencies)
 - Responsive design
-- Real-time updates
+- Real-time updates via polling
 - Auto-scrolling and textarea resizing
 - Keyboard shortcuts (Enter to send, Shift+Enter for new line)
 
