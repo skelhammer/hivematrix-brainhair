@@ -132,7 +132,7 @@ Brain Hair v2.0 with Claude Code integration is complete and ready for end-to-en
   - `GET /api/ticket/<id>` - Get ticket details with conversations and notes
   - `POST /api/ticket/<id>/update` - Update ticket status and add notes
   - Pagination support (limit, offset)
-  - Integration with existing FreshService data
+  - Integration with existing PSA data via Codex
 
 ### Datto RMM Integration 🟡 PARTIAL
 - [x] **Device data API** (`/api/datto/devices`)
@@ -150,9 +150,9 @@ Brain Hair v2.0 with Claude Code integration is complete and ready for end-to-en
   - Error handling and logging ✅ DONE
   - Security validation ✅ DONE
 
-### FreshService Integration
-- [ ] **Ticket sync** (`/api/freshservice/tickets`)
-  - Pull tickets from FreshService API
+### PSA Integration
+- [ ] **Ticket sync** (`/api/psa/tickets`)
+  - Pull tickets from PSA systems via Codex
   - Sync to Codex database
   - Real-time updates
   - Webhook support for live updates
@@ -269,7 +269,7 @@ Brain Hair v2.0 with Claude Code integration is complete and ready for end-to-en
 ⚠️ **Claude AI** - Simulated responses, needs real API
 ⚠️ **Datto** - Not integrated yet
 ⚠️ **Tickets** - No API endpoint exists in Codex
-⚠️ **FreshService** - No sync implemented
+⚠️ **PSA Tickets** - Sync via Codex API
 
 ### Overall Completion
 - Core Infrastructure: **100%** ✅
@@ -303,8 +303,8 @@ Brain Hair v2.0 with Claude Code integration is complete and ready for end-to-en
    - Command execution
    - Testing
 
-5. **FreshService sync** (4-6 hours)
-   - API integration
+5. **PSA ticket sync** (4-6 hours)
+   - API integration via Codex
    - Webhook setup
    - Real-time updates
 

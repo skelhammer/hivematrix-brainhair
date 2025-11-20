@@ -211,7 +211,7 @@ update_ticket(12345, notes="Verified password reset completed successfully")
 **Manage Billing:**
 - `set_billing_override(account_number, **overrides)` - Set custom rates
 - `add_manual_asset(account_number, hostname, billing_type, ...)` - Add device not in Datto
-- `add_manual_user(account_number, full_name, billing_type, ...)` - Add user not in FreshService
+- `add_manual_user(account_number, full_name, billing_type, ...)` - Add user not in PSA system
 - `add_line_item(account_number, name, monthly_fee=None, ...)` - Add custom charges
 
 **Example - Look up billing:**

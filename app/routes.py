@@ -347,13 +347,13 @@ def codex_tickets():
         return jsonify({'error': f'Error calling Codex: {str(e)}'}), 500
 
 
-# ==================== FreshService Integration ====================
+# ==================== PSA/Ticket Integration ====================
 
-@app.route('/api/freshservice/tickets', methods=['GET'])
+@app.route('/api/psa/tickets', methods=['GET'])
 @token_required
-def freshservice_tickets():
+def psa_tickets():
     """
-    Get tickets from FreshService (via Codex sync) with filtering.
+    Get tickets from PSA (via Codex sync) with filtering.
 
     Query params:
         filter: Filter type ("phi", "cjis", or none for PHI)
@@ -365,8 +365,8 @@ def freshservice_tickets():
     limit = request.args.get('limit', '50')
 
     try:
-        # Call Codex service which has FreshService data
-        response = call_service('codex', f'/api/freshservice/tickets?limit={limit}')
+        # Call Codex service which has PSA data
+        response = call_service('codex', f'/api/psa/tickets?limit={limit}')
 
         if response.status_code == 200:
             data = response.json()
@@ -374,20 +374,20 @@ def freshservice_tickets():
             # Apply Presidio filtering
             filtered_data = apply_filter(data, filter_type)
 
-            logger.info(f"FreshService tickets retrieved: count={len(data) if isinstance(data, list) else 'N/A'}")
+            logger.info(f"PSA tickets retrieved: count={len(data) if isinstance(data, list) else 'N/A'}")
 
             return jsonify({
-                'source': 'freshservice',
+                'source': 'psa',
                 'filter_applied': filter_type,
                 'data': filtered_data
             })
         else:
-            logger.error(f"FreshService tickets retrieval failed: {response.status_code}")
-            return jsonify({'error': 'FreshService tickets retrieval failed'}), response.status_code
+            logger.error(f"PSA tickets retrieval failed: {response.status_code}")
+            return jsonify({'error': 'PSA tickets retrieval failed'}), response.status_code
 
     except Exception as e:
-        logger.error(f"Error calling FreshService via Codex: {e}")
-        return jsonify({'error': f'Error calling FreshService: {str(e)}'}), 500
+        logger.error(f"Error calling PSA via Codex: {e}")
+        return jsonify({'error': f'Error calling PSA: {str(e)}'}), 500
 
 @app.route('/api/codex/ticket/<int:ticket_id>', methods=['GET'])
 @token_required
@@ -429,11 +429,11 @@ def codex_ticket(ticket_id: int):
         return jsonify({'error': f'Error calling Codex: {str(e)}'}), 500
 
 
-@app.route('/api/freshservice/ticket/<int:ticket_id>', methods=['GET'])
+@app.route('/api/psa/ticket/<int:ticket_id>', methods=['GET'])
 @token_required
-def freshservice_ticket(ticket_id: int):
+def psa_ticket(ticket_id: int):
     """
-    Get a specific ticket from FreshService with filtering.
+    Get a specific ticket from PSA with filtering.
 
     Query params:
         filter: Filter type ("phi", "cjis", or none for PHI)
@@ -443,8 +443,8 @@ def freshservice_ticket(ticket_id: int):
     filter_type = request.args.get('filter', 'phi')
 
     try:
-        # Call Codex service
-        response = call_service('codex', f'/api/freshservice/ticket/{ticket_id}')
+        # Call Codex service - uses generic ticket endpoint
+        response = call_service('codex', f'/api/ticket/{ticket_id}')
 
         if response.status_code == 200:
             data = response.json()
@@ -452,21 +452,21 @@ def freshservice_ticket(ticket_id: int):
             # Apply Presidio filtering
             filtered_data = apply_filter(data, filter_type)
 
-            logger.info(f"FreshService ticket retrieved: ticket_id={ticket_id}")
+            logger.info(f"PSA ticket retrieved: ticket_id={ticket_id}")
 
             return jsonify({
-                'source': 'freshservice',
+                'source': 'psa',
                 'ticket_id': ticket_id,
                 'filter_applied': filter_type,
                 'data': filtered_data
             })
         else:
-            logger.error(f"FreshService ticket retrieval failed: {response.status_code}")
+            logger.error(f"PSA ticket retrieval failed: {response.status_code}")
             return jsonify({'error': 'Ticket not found'}), response.status_code
 
     except Exception as e:
-        logger.error(f"Error calling FreshService via Codex: {e}")
-        return jsonify({'error': f'Error calling FreshService: {str(e)}'}), 500
+        logger.error(f"Error calling PSA via Codex: {e}")
+        return jsonify({'error': f'Error calling PSA: {str(e)}'}), 500
 
 
 # ==================== Datto Integration ====================
@@ -1230,9 +1230,9 @@ def list_endpoints():
             '/api/codex/company/<id>': 'Get company details',
             '/api/codex/tickets': 'List tickets'
         },
-        'freshservice': {
-            '/api/freshservice/tickets': 'List FreshService tickets',
-            '/api/freshservice/ticket/<id>': 'Get specific ticket'
+        'psa': {
+            '/api/psa/tickets': 'List PSA tickets',
+            '/api/psa/ticket/<id>': 'Get specific ticket'
         },
         'datto': {
             '/api/datto/devices': 'List Datto devices',
