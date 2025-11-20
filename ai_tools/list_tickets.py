@@ -1,4 +1,4 @@
-#!/home/david/Work/hivematrix/hivematrix-brainhair/pyenv/bin/python
+#!/usr/bin/env python3
 """
 List Tickets from Codex/PSA
 

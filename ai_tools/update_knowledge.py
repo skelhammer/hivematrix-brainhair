@@ -1,4 +1,4 @@
-#!/home/david/Work/hivematrix/hivematrix-brainhair/pyenv/bin/python
+#!/usr/bin/env python3
 """
 Update Documentation - PRIMARY TOOL FOR KNOWLEDGETREE
 
