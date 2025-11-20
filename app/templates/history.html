@@ -155,64 +155,6 @@
         });
     </script>
 
-    <style>
-        .history-card {
-            border: 1px solid var(--color-border-light);
-            border-radius: 8px;
-            padding: 1.25rem;
-            margin-bottom: 1rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            background: var(--color-surface);
-        }
-
-        .history-card:hover {
-            background: var(--color-hover-bg);
-            transform: translateX(4px);
-            border-color: var(--color-primary);
-        }
-
-        .history-card__header {
-            display: flex;
-            justify-content: space-between;
-            align-items: start;
-            margin-bottom: 0.75rem;
-        }
-
-        .history-card__title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--color-primary);
-            margin: 0;
-        }
-
-        .history-card__date {
-            font-size: 0.9rem;
-            color: var(--color-text-secondary);
-            white-space: nowrap;
-        }
-
-        .history-card__preview {
-            color: var(--color-text-secondary);
-            font-size: 0.95rem;
-            margin-bottom: 0.5rem;
-            line-height: 1.4;
-        }
-
-        .history-card__meta {
-            font-size: 0.85rem;
-            color: var(--color-text-muted);
-            margin-top: 0.5rem;
-        }
-
-        [data-theme="dark"] .history-card {
-            border-color: var(--color-border-medium);
-        }
-
-        [data-theme="dark"] .history-card:hover {
-            border-color: var(--color-primary);
-        }
-    </style>
     <div class="version-footer">
         <span class="version-footer__text">{{ app_service_name }} v{{ app_version }}</span>
     </div>
