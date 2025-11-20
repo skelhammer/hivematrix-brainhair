@@ -41,6 +41,12 @@ def request_approval(action: str, details: dict, timeout: int = 120) -> bool:
         print("ERROR: No active session ID found", file=sys.stderr)
         return False
 
+    # Validate session ID format to prevent path traversal
+    import re
+    if not re.match(r'^[a-zA-Z0-9_-]+$', session_id):
+        print(f"ERROR: Invalid session ID format", file=sys.stderr)
+        return False
+
     # Generate unique approval ID
     approval_id = f"{session_id}_{int(time.time() * 1000)}"  # Session ID + timestamp
 
