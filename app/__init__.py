@@ -88,6 +88,16 @@ app.wsgi_app = ProxyFix(
     x_prefix=1    # Trust X-Forwarded-Prefix (sets SCRIPT_NAME for url_for)
 )
 
+from app.version import VERSION, SERVICE_NAME as VERSION_SERVICE_NAME
+
+# Context processor to inject version into all templates
+@app.context_processor
+def inject_version():
+    return {
+        'app_version': VERSION,
+        'app_service_name': VERSION_SERVICE_NAME
+    }
+
 from app import routes
 from app import chat_routes
 
