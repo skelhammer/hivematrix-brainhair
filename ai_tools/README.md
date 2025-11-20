@@ -66,7 +66,7 @@ python search_knowledge.py browse "/network/vpn"
 ```
 
 ### 5. list_tickets.py
-List and view tickets from FreshService or Codex.
+List and view tickets from PSA or Codex.
 
 **Usage:**
 ```bash
@@ -76,9 +76,9 @@ python list_tickets.py get <ticket_id> [source] [filter]
 
 **Examples:**
 ```bash
-python list_tickets.py list                        # FreshService tickets
+python list_tickets.py list                        # PSA tickets
 python list_tickets.py list codex                  # Codex tickets
-python list_tickets.py list freshservice cjis      # FreshService with CJIS filter
+python list_tickets.py list psa cjis               # PSA with CJIS filter
 python list_tickets.py get 12345                   # Get specific ticket
 python list_tickets.py get 12345 codex phi         # Get from Codex with PHI filter
 ```
@@ -141,9 +141,9 @@ All available Brain Hair endpoints:
 - `GET /api/codex/company/<id>?filter=<phi|cjis>`
 - `GET /api/codex/tickets?company_id=<id>&status=<status>&filter=<phi|cjis>`
 
-### FreshService
-- `GET /api/freshservice/tickets?limit=<n>&filter=<phi|cjis>`
-- `GET /api/freshservice/ticket/<id>?filter=<phi|cjis>`
+### PSA
+- `GET /api/psa/tickets?limit=<n>&filter=<phi|cjis>`
+- `GET /api/psa/ticket/<id>?filter=<phi|cjis>`
 
 ### Datto
 - `GET /api/datto/devices?company_id=<id>&filter=<phi|cjis>`

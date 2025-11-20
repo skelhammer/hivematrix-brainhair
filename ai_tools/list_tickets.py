@@ -1,6 +1,6 @@
 #!/home/david/Work/hivematrix/hivematrix-brainhair/pyenv/bin/python
 """
-List Tickets from Codex/FreshService
+List Tickets from Codex/PSA
 
 Retrieves and displays tickets with filtering.
 """
@@ -15,7 +15,7 @@ def list_tickets(source="codex", company_id=None, status=None, filter_type="phi"
     List tickets with PHI/CJIS filtering.
 
     Args:
-        source: Source of tickets ("codex" or "freshservice")
+        source: Source of tickets ("codex" or "psa")
         company_id: Optional company ID filter
         status: Optional status filter
         filter_type: Type of filter to apply ("phi" or "cjis")
@@ -28,9 +28,9 @@ def list_tickets(source="codex", company_id=None, status=None, filter_type="phi"
 
     params = {"filter": filter_type}
 
-    if source == "freshservice":
+    if source == "psa":
         params["limit"] = str(limit)
-        endpoint = "/api/freshservice/tickets"
+        endpoint = "/api/psa/tickets"
     else:
         if company_id:
             params["company_id"] = company_id
@@ -49,13 +49,13 @@ def list_tickets(source="codex", company_id=None, status=None, filter_type="phi"
         return []
 
 
-def get_ticket(ticket_id, source="freshservice", filter_type="phi"):
+def get_ticket(ticket_id, source="psa", filter_type="phi"):
     """
     Get a specific ticket.
 
     Args:
         ticket_id: Ticket ID
-        source: Source ("freshservice" or "codex")
+        source: Source ("psa" or "codex")
         filter_type: Filter type
 
     Returns:
@@ -81,13 +81,13 @@ def main():
         print("  List: python list_tickets.py list [source] [filter]")
         print("  Get:  python list_tickets.py get <ticket_id> [source] [filter]")
         print("")
-        print("Sources: codex, freshservice")
+        print("Sources: codex, psa")
         print("Filters: phi, cjis")
         sys.exit(1)
 
     command = sys.argv[1]
     filter_type = "phi"
-    source = "freshservice"
+    source = "psa"
 
     if command == "list":
         if len(sys.argv) > 2:

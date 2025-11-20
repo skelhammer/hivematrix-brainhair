@@ -30,7 +30,7 @@ All data is automatically PHI/CJIS filtered:
 - **Codex**: Tickets, clients, company information
 - **KnowledgeTree**: Documentation and procedures
 - **Datto**: Device information and management
-- **FreshService**: Ticket system integration
+- **PSA Systems**: Ticket system integration (via Codex)
 
 ### 🔒 Security & Compliance
 - All data filtered through Presidio for PHI/CJIS compliance
@@ -241,7 +241,7 @@ Claude: Acme Corp has 47 devices:
 - ⏳ KnowledgeTree full browsing
 - ⏳ Codex tickets API
 - ⏳ Datto RMM command execution
-- ⏳ FreshService ticket integration
+- ⏳ PSA ticket integration via Codex
 - ⏳ Real Claude API integration (currently simulated)
 - ⏳ Database-backed chat sessions
 - ⏳ Command history persistence
