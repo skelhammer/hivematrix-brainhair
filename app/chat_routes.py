@@ -177,21 +177,26 @@ def poll_response(response_id):
     # Check for approval request files and inject them into the stream
     logger = get_helm_logger()
     if db_session_id:
-        approval_files = glob.glob(f"/tmp/brainhair_approval_request_{db_session_id}_*.json")
-        logger.debug(f"Checking for approval files: /tmp/brainhair_approval_request_{db_session_id}_*.json, found: {len(approval_files)}")
-        for approval_file in approval_files:
-            try:
-                with open(approval_file, 'r') as f:
-                    approval_data = json.load(f)
+        # Validate session ID format to prevent path traversal
+        import re
+        if not re.match(r'^[a-zA-Z0-9_-]+$', db_session_id):
+            logger.warning(f"Invalid db_session_id format: {db_session_id}")
+        else:
+            approval_files = glob.glob(f"/tmp/brainhair_approval_request_{db_session_id}_*.json")
+            logger.debug(f"Checking for approval files: /tmp/brainhair_approval_request_{db_session_id}_*.json, found: {len(approval_files)}")
+            for approval_file in approval_files:
+                try:
+                    with open(approval_file, 'r') as f:
+                        approval_data = json.load(f)
 
-                # Add to buffer if not already added
-                if not any(chunk.get('approval_id') == approval_data.get('approval_id') for chunk in buffer['chunks']):
-                    buffer['chunks'].append(approval_data)
-                    logger.info(f"Injected approval request into stream: {approval_data.get('approval_id')}")
-                else:
-                    logger.debug(f"Approval {approval_data.get('approval_id')} already in buffer")
-            except Exception as e:
-                logger.error(f"Error reading approval file {approval_file}: {e}")
+                    # Add to buffer if not already added
+                    if not any(chunk.get('approval_id') == approval_data.get('approval_id') for chunk in buffer['chunks']):
+                        buffer['chunks'].append(approval_data)
+                        logger.info(f"Injected approval request into stream: {approval_data.get('approval_id')}")
+                    else:
+                        logger.debug(f"Approval {approval_data.get('approval_id')} already in buffer")
+                except Exception as e:
+                    logger.error(f"Error reading approval file {approval_file}: {e}")
 
     # Get the offset parameter (how many chunks client already has)
     offset = int(request.args.get('offset', 0))
@@ -288,16 +293,20 @@ def build_context(ticket: Optional[str], client: Optional[str], user: str) -> Di
         try:
             # TODO: Call Codex to get ticket details
             context['ticket_details'] = {'status': 'pending'}
-        except:
-            pass
+        except Exception as e:
+            # Log but don't fail - ticket details are optional context
+            import logging
+            logging.getLogger(__name__).debug(f"Could not fetch ticket details: {e}")
 
     # If we have a client, fetch their info
     if client:
         try:
             # TODO: Call Codex to get client details
             context['client_details'] = {'name': client}
-        except:
-            pass
+        except Exception as e:
+            # Log but don't fail - client details are optional context
+            import logging
+            logging.getLogger(__name__).debug(f"Could not fetch client details: {e}")
 
     return context
 
@@ -827,6 +836,12 @@ def respond_to_approval(approval_id):
     try:
         data = request.get_json()
         approved = data.get('approved', False)
+
+        # Validate approval_id format to prevent path traversal
+        import re
+        if not re.match(r'^[a-zA-Z0-9_-]+$', approval_id):
+            logger.warning(f"Invalid approval_id format: {approval_id}")
+            return jsonify({'error': 'Invalid approval ID format'}), 400
 
         # Write response to file that the tool is polling
         response_file = f"/tmp/brainhair_approval_response_{approval_id}.json"
