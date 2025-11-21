@@ -10,7 +10,7 @@ from .auth import token_required
 from .service_client import call_service
 from .helm_logger import get_helm_logger
 from .claude_session_manager import get_session_manager
-from .presidio_filter import apply_filter
+from .presidio_filter import get_presidio_filter
 import json
 import uuid
 import time
@@ -30,6 +30,24 @@ pending_approvals = {}
 
 # Get the global session manager
 session_manager = get_session_manager()
+
+
+def apply_filter(data, filter_type='phi'):
+    """
+    Apply Presidio filtering to data.
+
+    Args:
+        data: Data to filter
+        filter_type: Type of filter ("phi" or "cjis")
+
+    Returns:
+        Filtered data
+    """
+    presidio = get_presidio_filter()
+    if filter_type == 'cjis':
+        return presidio.filter_cjis(data)
+    else:
+        return presidio.filter_phi(data)
 
 
 @app.route('/chat')
