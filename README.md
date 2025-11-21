@@ -40,12 +40,25 @@ Located in `ai_tools/`:
 - `GET /api/chats` - List chat sessions
 - `DELETE /api/chats/<id>` - Delete chat session
 
+## Quick Setup
+
+1. Copy environment template:
+   ```bash
+   cp .flaskenv.example .flaskenv
+   ```
+
+2. Configure `.flaskenv` if needed (defaults work for local development)
+
+3. See the [HiveMatrix Documentation](https://skelhammer.github.io/hivematrix-docs/) for complete setup
+
 ## Environment Variables
 
 - `ANTHROPIC_API_KEY` - Claude API key
 - `CORE_SERVICE_URL` - Core service URL
 - `CODEX_SERVICE_URL` - Codex service URL
 - `LEDGER_SERVICE_URL` - Ledger service URL
+- `FLASK_RUN_PORT` - Service port (default: 5050)
+- `VERIFY_SSL` - SSL verification for development (default: False)
 
 ## Documentation
 

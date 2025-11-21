@@ -293,22 +293,69 @@ def build_context(ticket: Optional[str], client: Optional[str], user: str) -> Di
     # If we have a ticket, fetch its details
     if ticket:
         try:
-            # TODO: Call Codex to get ticket details
-            context['ticket_details'] = {'status': 'pending'}
+            # Try PSA first, fallback to Codex
+            try:
+                response = call_service('brainhair', f'/api/psa/ticket/{ticket}', params={'filter': 'phi'})
+                if response.status_code == 200:
+                    ticket_data = response.json()
+                    context['ticket_details'] = {
+                        'id': ticket_data.get('id'),
+                        'title': ticket_data.get('title'),
+                        'status': ticket_data.get('status'),
+                        'priority': ticket_data.get('priority'),
+                        'company': ticket_data.get('company_name'),
+                        'assigned_to': ticket_data.get('assigned_technician')
+                    }
+            except Exception:
+                # Fallback to Codex
+                response = call_service('brainhair', f'/api/codex/ticket/{ticket}', params={'filter': 'phi'})
+                if response.status_code == 200:
+                    ticket_data = response.json()
+                    context['ticket_details'] = {
+                        'id': ticket_data.get('id'),
+                        'title': ticket_data.get('title'),
+                        'status': ticket_data.get('status'),
+                        'priority': ticket_data.get('priority'),
+                        'company': ticket_data.get('company_name')
+                    }
         except Exception as e:
             # Log but don't fail - ticket details are optional context
             import logging
             logging.getLogger(__name__).debug(f"Could not fetch ticket details: {e}")
+            context['ticket_details'] = {'id': ticket, 'status': 'unknown'}
 
     # If we have a client, fetch their info
     if client:
         try:
-            # TODO: Call Codex to get client details
-            context['client_details'] = {'name': client}
+            # Get all companies and find match by name
+            response = call_service('brainhair', '/api/codex/companies', params={'filter': 'phi'})
+            if response.status_code == 200:
+                companies = response.json().get('data', [])
+                # Find company by name (case-insensitive)
+                client_lower = client.lower()
+                matching_company = None
+                for company in companies:
+                    if company.get('name', '').lower() == client_lower:
+                        matching_company = company
+                        break
+
+                if matching_company:
+                    context['client_details'] = {
+                        'id': matching_company.get('id'),
+                        'name': matching_company.get('name'),
+                        'domain': matching_company.get('domain'),
+                        'status': matching_company.get('status'),
+                        'plan': matching_company.get('plan_name')
+                    }
+                else:
+                    context['client_details'] = {'name': client, 'status': 'not_found'}
+            else:
+                context['client_details'] = {'name': client}
         except Exception as e:
             # Log but don't fail - client details are optional context
             import logging
             logging.getLogger(__name__).debug(f"Could not fetch client details: {e}")
+            context['client_details'] = {'name': client}
 
     return context
 
