@@ -86,23 +86,31 @@ def chat_message():
             return jsonify({'error': 'Message is required'}), 400
 
         user = g.user.get('preferred_username', 'unknown')
-        logger.info(f"Chat message from {user}: {message[:100]}")
+        logger.info(f"[CHAT] Message from {user}: {message[:100]}")
+        logger.info(f"[CHAT] Context - ticket: {ticket}, client: {client}, session_id: {session_id}, db_session_id: {db_session_id}")
 
         # Build context for Claude
         context = build_context(ticket, client, user)
+        logger.info(f"[CHAT] Built context: {context}")
 
         # Get or create Claude session
         if session_id:
+            logger.info(f"[CHAT] Looking for existing session: {session_id}")
             session = session_manager.get_session(session_id)
             if not session:
+                logger.info(f"[CHAT] Session not found, creating new session")
                 session_id = session_manager.create_session(user, context, db_session_id=db_session_id)
                 session = session_manager.get_session(session_id)
         else:
+            logger.info(f"[CHAT] Creating new session")
             session_id = session_manager.create_session(user, context, db_session_id=db_session_id)
             session = session_manager.get_session(session_id)
 
         if not session:
+            logger.error(f"[CHAT] Failed to create or get session")
             return jsonify({'error': 'Failed to create session'}), 500
+
+        logger.info(f"[CHAT] Using session: {session_id}")
 
         # Generate unique response ID
         response_id = str(uuid.uuid4())
@@ -129,24 +137,27 @@ def chat_message():
         @copy_current_request_context
         def collect_response():
             try:
-                logger.info(f"Starting to collect response for {response_id}")
+                logger.info(f"[COLLECT] Starting collection for response_id={response_id}")
                 chunk_count = 0
                 for chunk in session.send_message_stream(message):
                     chunk_count += 1
+                    logger.info(f"[COLLECT] Received chunk {chunk_count}, length={len(chunk) if chunk else 0}")
                     try:
                         chunk_data = json.loads(chunk)
                         response_buffers[response_id]['chunks'].append(chunk_data)
                         chunk_type = chunk_data.get('type') if isinstance(chunk_data, dict) else str(type(chunk_data))
-                        logger.debug(f"Added chunk {chunk_count} type={chunk_type}")
-                    except json.JSONDecodeError:
+                        logger.info(f"[COLLECT] Parsed JSON chunk {chunk_count}, type={chunk_type}")
+                    except json.JSONDecodeError as json_err:
+                        logger.warning(f"[COLLECT] JSON parse error in chunk {chunk_count}: {json_err}, content: {chunk[:200]}")
                         response_buffers[response_id]['chunks'].append({'type': 'chunk', 'content': chunk})
-                        logger.debug(f"Added text chunk {chunk_count}")
 
-                logger.info(f"Stream complete for {response_id}, collected {chunk_count} chunks")
+                logger.info(f"[COLLECT] Stream complete for {response_id}, total chunks={chunk_count}")
                 response_buffers[response_id]['done'] = True
             except Exception as e:
-                logger.error(f"Error collecting response: {e}")
-                response_buffers[response_id]['error'] = 'Internal server error'
+                logger.error(f"[COLLECT] Error collecting response for {response_id}: {type(e).__name__}: {str(e)}")
+                import traceback
+                logger.error(f"[COLLECT] Traceback: {traceback.format_exc()}")
+                response_buffers[response_id]['error'] = f'Internal server error: {type(e).__name__}'
                 response_buffers[response_id]['done'] = True
 
         thread = threading.Thread(target=collect_response, daemon=True)
