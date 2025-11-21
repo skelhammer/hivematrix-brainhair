@@ -24,7 +24,7 @@ def get_service_token(target_service):
         response = requests.post(
             f"{CORE_URL}/service-token",
             json={
-                "calling_service": "brainhair-tools",
+                "calling_service": "brainhair",
                 "target_service": target_service
             },
             timeout=5

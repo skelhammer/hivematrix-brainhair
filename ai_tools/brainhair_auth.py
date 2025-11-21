@@ -129,7 +129,7 @@ def get_auth(username: str = "claude", password: str = "claude123",
             response = requests.post(
                 f"{core_url}/service-token",
                 json={
-                    "calling_service": "brainhair-tools",
+                    "calling_service": "brainhair",
                     "target_service": "brainhair"
                 },
                 timeout=5
