@@ -230,16 +230,18 @@
                         hideTyping();
                         hideStopButton();
 
-                        // Let typewriter finish naturally, then keep formatting as-is
+                        // Let typewriter finish naturally, then apply markdown formatting
                         const finishTyping = setInterval(() => {
                             if (displayedLength >= textBuffer.length) {
                                 clearInterval(finishTyping);
                                 stopTypewriter();
 
-                                // Keep the message as-is with preserved whitespace
-                                // Apply CSS to preserve whitespace formatting
+                                // Apply markdown formatting to completed message
                                 if (currentStreamingMessage) {
-                                    currentStreamingMessage.style.whiteSpace = 'pre-wrap';
+                                    const rawText = textBuffer;
+                                    const parent = currentStreamingMessage.parentElement;
+                                    parent.removeChild(currentStreamingMessage);
+                                    parent.innerHTML = formatMessage(rawText);
                                     currentStreamingMessage = null;
                                     textBuffer = '';
                                     displayedLength = 0;
@@ -387,21 +389,77 @@
                 return `__CODEBLOCK_${codeBlocks.length - 1}__`;
             });
 
-            // Markdown-like formatting
+            // Process line by line for headers and lists
+            const lines = text.split('\n');
+            const processed = [];
+            let inList = false;
+            let listType = null;
+
+            for (let line of lines) {
+                // Headers
+                if (line.startsWith('### ')) {
+                    if (inList) { processed.push(listType === 'ul' ? '</ul>' : '</ol>'); inList = false; }
+                    processed.push(`<h3>${line.substring(4)}</h3>`);
+                } else if (line.startsWith('## ')) {
+                    if (inList) { processed.push(listType === 'ul' ? '</ul>' : '</ol>'); inList = false; }
+                    processed.push(`<h2>${line.substring(3)}</h2>`);
+                } else if (line.startsWith('# ')) {
+                    if (inList) { processed.push(listType === 'ul' ? '</ul>' : '</ol>'); inList = false; }
+                    processed.push(`<h1>${line.substring(2)}</h1>`);
+                }
+                // Unordered lists
+                else if (line.match(/^[\-\*]\s/)) {
+                    if (!inList || listType !== 'ul') {
+                        if (inList) processed.push('</ol>');
+                        processed.push('<ul>');
+                        inList = true;
+                        listType = 'ul';
+                    }
+                    processed.push(`<li>${line.substring(2)}</li>`);
+                }
+                // Ordered lists
+                else if (line.match(/^\d+\.\s/)) {
+                    if (!inList || listType !== 'ol') {
+                        if (inList) processed.push('</ul>');
+                        processed.push('<ol>');
+                        inList = true;
+                        listType = 'ol';
+                    }
+                    processed.push(`<li>${line.substring(line.indexOf('.') + 2)}</li>`);
+                }
+                // Regular lines
+                else {
+                    if (inList) {
+                        processed.push(listType === 'ul' ? '</ul>' : '</ol>');
+                        inList = false;
+                    }
+                    if (line.trim()) {
+                        processed.push(line);
+                    } else {
+                        processed.push('<br>');
+                    }
+                }
+            }
+
+            // Close any open lists
+            if (inList) {
+                processed.push(listType === 'ul' ? '</ul>' : '</ol>');
+            }
+
+            text = processed.join('\n');
+
+            // Markdown-like inline formatting
             text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
             text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
             text = text.replace(/`(.*?)`/g, '<code>$1</code>');
 
-            // Convert double newlines to paragraph breaks
-            text = text.replace(/\n\n/g, '</p><p>');
-
-            // Convert single newlines to <br>
-            text = text.replace(/\n/g, '<br>');
-
-            // Wrap in paragraph tags if not empty
-            if (text.trim()) {
-                text = '<p>' + text + '</p>';
-            }
+            // Wrap non-tag lines in paragraphs
+            text = text.split('\n').map(line => {
+                if (line.trim() && !line.match(/^<(h[123]|ul|ol|li|pre|br)/)) {
+                    return `<p>${line}</p>`;
+                }
+                return line;
+            }).join('\n');
 
             // Restore code blocks
             codeBlocks.forEach((block, i) => {
