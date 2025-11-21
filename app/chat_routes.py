@@ -145,7 +145,7 @@ def chat_message():
                 response_buffers[response_id]['done'] = True
             except Exception as e:
                 logger.error(f"Error collecting response: {e}", exc_info=True)
-                response_buffers[response_id]['error'] = str(e)
+                response_buffers[response_id]['error'] = 'Internal server error'
                 response_buffers[response_id]['done'] = True
 
         thread = threading.Thread(target=collect_response, daemon=True)
@@ -158,7 +158,7 @@ def chat_message():
 
     except Exception as e:
         logger.error(f"Chat error: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/chat/poll/<response_id>', methods=['GET'])
@@ -258,7 +258,7 @@ def stop_response(response_id):
 
     except Exception as e:
         logger.error(f"Error stopping response: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 def build_context(ticket: Optional[str], client: Optional[str], user: str) -> Dict:
@@ -390,7 +390,7 @@ def approve_command():
 
     except Exception as e:
         logger.error(f"Command approval error: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/chat/command/deny', methods=['POST'])
@@ -430,7 +430,7 @@ def deny_command():
 
     except Exception as e:
         logger.error(f"Command denial error: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 def execute_remote_command(device_id: str, command: str) -> str:
@@ -479,7 +479,7 @@ def destroy_session(session_id: str):
         return jsonify({'status': 'destroyed'})
     except Exception as e:
         logger.error(f"Error destroying session: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/command/<command_id>/status', methods=['GET'])
@@ -515,7 +515,7 @@ def get_command_status(command_id: str):
 
     except Exception as e:
         logger.error(f"Error getting command status: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 # ==================== Chat History Endpoints ====================
@@ -576,7 +576,7 @@ def list_chat_sessions():
 
     except Exception as e:
         logger.error(f"Error listing chat sessions: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/chat/history/<session_id>', methods=['GET'])
@@ -614,7 +614,7 @@ def get_chat_session(session_id):
 
     except Exception as e:
         logger.error(f"Error getting chat session: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/chat/history/search', methods=['GET'])
@@ -676,7 +676,7 @@ def search_chat_history():
 
     except Exception as e:
         logger.error(f"Error searching chat history: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/chat/session/<session_id>/title', methods=['PUT'])
@@ -733,7 +733,7 @@ def update_session_title(session_id):
 
     except Exception as e:
         logger.error(f"Error updating session title: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 # ============================================================
@@ -781,7 +781,7 @@ def create_approval_request():
 
     except Exception as e:
         logger.error(f"Error creating approval request: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/approval/poll/<approval_id>', methods=['GET'])
@@ -857,4 +857,4 @@ def respond_to_approval(approval_id):
 
     except Exception as e:
         logger.error(f"Error responding to approval: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500

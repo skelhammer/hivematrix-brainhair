@@ -541,7 +541,7 @@ class ClaudeSession:
             yield "\n\n[Error: Request timed out]"
         except Exception as e:
             self.logger.error(f"Error invoking Claude Code: {e}", exc_info=True)
-            yield f"\n\n[Error: {str(e)}]"
+            yield f"\n\n[Error: Internal server error]"
 
     def _generate_demo_response(self, message: str) -> str:
         """
@@ -565,7 +565,7 @@ class ClaudeSession:
                     return f"Here are the first 5 companies from Codex:\n\n{comp_list}\n\nWould you like more details on any of these?"
             except Exception as e:
                 self.logger.error(f"Error calling get_companies: {e}")
-                return f"I tried to fetch companies but encountered an error: {str(e)}"
+                return "I tried to fetch companies but encountered an error. Please try again later."
 
         elif 'ticket' in msg_lower and 'list' in msg_lower:
             try:
@@ -582,7 +582,7 @@ class ClaudeSession:
                     return "I couldn't find any tickets. The API may not be fully configured yet."
             except Exception as e:
                 self.logger.error(f"Error calling get_tickets: {e}")
-                return f"I tried to fetch tickets but encountered an error: {str(e)}"
+                return "I tried to fetch tickets but encountered an error. Please try again later."
 
         elif 'device' in msg_lower or 'computer' in msg_lower:
             return f"""I can help you check device information. The Datto integration is set up with these capabilities:

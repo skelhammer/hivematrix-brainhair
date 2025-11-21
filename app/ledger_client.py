@@ -47,7 +47,7 @@ class LedgerClient:
 
         except Exception as e:
             self.logger.error(f"Error calling Ledger: {e}", exc_info=True)
-            return {'error': str(e)}
+            return {'error': 'Internal server error'}
 
     # ===== BILLING DATA =====
 

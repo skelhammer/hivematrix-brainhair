@@ -39,7 +39,7 @@ def get_companies(limit: int = 100) -> dict:
         return response.json()
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to retrieve companies',
             'companies': [],
             'count': 0
         }
@@ -71,7 +71,7 @@ def get_company(company_id: int) -> dict:
         return response.json()
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to retrieve company details',
             'id': company_id
         }
 
@@ -122,7 +122,7 @@ def get_tickets(
         return response.json()
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to retrieve tickets',
             'tickets': [],
             'count': 0
         }
@@ -162,7 +162,7 @@ def get_ticket(ticket_id: int) -> dict:
         return response.json()
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to retrieve ticket details',
             'id': ticket_id
         }
 
@@ -217,6 +217,6 @@ def update_ticket(
     except Exception as e:
         return {
             'success': False,
-            'error': str(e),
+            'error': 'Failed to update ticket',
             'ticket_id': ticket_id
         }

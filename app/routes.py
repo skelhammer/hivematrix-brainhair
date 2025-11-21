@@ -7,7 +7,7 @@ PHI/CJIS filtering via Presidio.
 """
 
 from flask import render_template, g, jsonify, request
-from app import app
+from app import app, limiter
 from .auth import token_required, allow_localhost
 from .service_client import call_service
 from .helm_logger import get_helm_logger
@@ -131,7 +131,7 @@ def knowledge_search():
 
     except Exception as e:
         logger.error(f"Error calling KnowledgeTree: {e}")
-        return jsonify({'error': f'Error calling KnowledgeTree: {str(e)}'}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/knowledge/browse', methods=['GET'])
@@ -173,7 +173,7 @@ def knowledge_browse():
 
     except Exception as e:
         logger.error(f"Error calling KnowledgeTree: {e}")
-        return jsonify({'error': f'Error calling KnowledgeTree: {str(e)}'}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/knowledge/node/<int:node_id>', methods=['GET'])
@@ -212,7 +212,7 @@ def knowledge_node(node_id: int):
 
     except Exception as e:
         logger.error(f"Error calling KnowledgeTree: {e}")
-        return jsonify({'error': f'Error calling KnowledgeTree: {str(e)}'}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 # ==================== Codex Integration ====================
@@ -252,7 +252,7 @@ def codex_companies():
 
     except Exception as e:
         logger.error(f"Error calling Codex: {e}")
-        return jsonify({'error': f'Error calling Codex: {str(e)}'}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/codex/company/<int:company_id>', methods=['GET'])
@@ -291,7 +291,7 @@ def codex_company(company_id: int):
 
     except Exception as e:
         logger.error(f"Error calling Codex: {e}")
-        return jsonify({'error': f'Error calling Codex: {str(e)}'}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/codex/tickets', methods=['GET'])
@@ -344,7 +344,7 @@ def codex_tickets():
 
     except Exception as e:
         logger.error(f"Error calling Codex: {e}")
-        return jsonify({'error': f'Error calling Codex: {str(e)}'}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 # ==================== PSA/Ticket Integration ====================
@@ -387,7 +387,7 @@ def psa_tickets():
 
     except Exception as e:
         logger.error(f"Error calling PSA via Codex: {e}")
-        return jsonify({'error': f'Error calling PSA: {str(e)}'}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/codex/ticket/<int:ticket_id>', methods=['GET'])
 @token_required
@@ -426,7 +426,7 @@ def codex_ticket(ticket_id: int):
 
     except Exception as e:
         logger.error(f"Error calling Codex: {e}")
-        return jsonify({'error': f'Error calling Codex: {str(e)}'}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/psa/ticket/<int:ticket_id>', methods=['GET'])
@@ -466,7 +466,7 @@ def psa_ticket(ticket_id: int):
 
     except Exception as e:
         logger.error(f"Error calling PSA via Codex: {e}")
-        return jsonify({'error': f'Error calling PSA: {str(e)}'}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 # ==================== Datto Integration ====================
@@ -514,7 +514,7 @@ def datto_devices():
 
     except Exception as e:
         logger.error(f"Error calling Datto via Codex: {e}")
-        return jsonify({'error': f'Error calling Datto: {str(e)}'}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/datto/device/<device_id>', methods=['GET'])
@@ -554,7 +554,7 @@ def datto_device(device_id: str):
 
     except Exception as e:
         logger.error(f"Error calling Datto via Codex: {e}")
-        return jsonify({'error': f'Error calling Datto: {str(e)}'}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 # ==================== Ledger Billing Integration ====================
@@ -598,7 +598,7 @@ def ledger_billing(account_number: str):
 
     except Exception as e:
         logger.error(f"Error fetching billing data: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/ledger/dashboard', methods=['GET'])
@@ -638,7 +638,7 @@ def ledger_dashboard():
 
     except Exception as e:
         logger.error(f"Error fetching dashboard: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/ledger/plans', methods=['GET'])
@@ -657,7 +657,7 @@ def ledger_plans():
 
     except Exception as e:
         logger.error(f"Error fetching plans: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/ledger/overrides/client/<account_number>', methods=['GET'])
@@ -676,7 +676,7 @@ def get_client_overrides(account_number: str):
 
     except Exception as e:
         logger.error(f"Error fetching overrides: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/ledger/overrides/client/<account_number>', methods=['PUT', 'POST'])
@@ -717,7 +717,7 @@ def set_client_overrides(account_number: str):
 
     except Exception as e:
         logger.error(f"Error setting overrides: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/ledger/overrides/client/<account_number>', methods=['DELETE'])
@@ -736,7 +736,7 @@ def delete_client_overrides_route(account_number: str):
 
     except Exception as e:
         logger.error(f"Error deleting overrides: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/ledger/manual-assets/<account_number>', methods=['GET'])
@@ -750,7 +750,7 @@ def get_manual_assets(account_number: str):
         assets = ledger.get_manual_assets(account_number)
         return jsonify({'manual_assets': assets})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/ledger/manual-assets/<account_number>', methods=['POST'])
@@ -785,7 +785,7 @@ def add_manual_asset(account_number: str):
         )
         return jsonify(result)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/ledger/manual-assets/<account_number>/<int:asset_id>', methods=['DELETE'])
@@ -799,7 +799,7 @@ def delete_manual_asset(account_number: str, asset_id: int):
         result = ledger.delete_manual_asset(account_number, asset_id)
         return jsonify(result)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/ledger/manual-users/<account_number>', methods=['GET'])
@@ -813,7 +813,7 @@ def get_manual_users(account_number: str):
         users = ledger.get_manual_users(account_number)
         return jsonify({'manual_users': users})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/ledger/manual-users/<account_number>', methods=['POST'])
@@ -848,7 +848,7 @@ def add_manual_user(account_number: str):
         )
         return jsonify(result)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/ledger/manual-users/<account_number>/<int:user_id>', methods=['DELETE'])
@@ -862,7 +862,7 @@ def delete_manual_user(account_number: str, user_id: int):
         result = ledger.delete_manual_user(account_number, user_id)
         return jsonify(result)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/ledger/line-items/<account_number>', methods=['GET'])
@@ -876,7 +876,7 @@ def get_line_items(account_number: str):
         items = ledger.get_custom_line_items(account_number)
         return jsonify({'line_items': items})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/ledger/line-items/<account_number>', methods=['POST'])
@@ -909,7 +909,7 @@ def add_line_item(account_number: str):
         result = ledger.add_custom_line_item(account_number, **data)
         return jsonify(result)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/ledger/line-items/<account_number>/<int:item_id>', methods=['PUT'])
@@ -928,7 +928,7 @@ def update_line_item(account_number: str, item_id: int):
         result = ledger.update_custom_line_item(account_number, item_id, **data)
         return jsonify(result)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/ledger/line-items/<account_number>/<int:item_id>', methods=['DELETE'])
@@ -942,7 +942,7 @@ def delete_line_item(account_number: str, item_id: int):
         result = ledger.delete_custom_line_item(account_number, item_id)
         return jsonify(result)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/ledger/invoice/<account_number>/summary', methods=['GET'])
@@ -968,7 +968,7 @@ def get_invoice_summary(account_number: str):
         result = ledger.get_invoice_summary(account_number, year, month)
         return jsonify(result)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/ledger/bill/accept', methods=['POST'])
@@ -1002,7 +1002,7 @@ def accept_bill():
         )
         return jsonify(result)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 # ==================== Contract Alignment Tool ====================
@@ -1037,7 +1037,7 @@ def analyze_contract():
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error analyzing contract: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/contract/current-settings/<account_number>', methods=['GET'])
@@ -1059,7 +1059,7 @@ def get_current_billing_settings(account_number: str):
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error getting settings: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/contract/compare', methods=['POST'])
@@ -1098,7 +1098,7 @@ def compare_contract_to_settings():
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error comparing terms: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/contract/align', methods=['POST'])
@@ -1150,7 +1150,7 @@ def align_billing_settings():
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error aligning settings: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/contract/verify', methods=['POST'])
@@ -1187,13 +1187,14 @@ def verify_alignment():
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error verifying alignment: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 # ==================== Utility Endpoints ====================
 
 @app.route('/api/health', methods=['GET'])
 @token_required
+@limiter.exempt
 def health():
     """Health check endpoint."""
     return jsonify({
@@ -1204,6 +1205,7 @@ def health():
 
 
 @app.route('/health', methods=['GET'])
+@limiter.exempt
 def public_health():
     """Public health check endpoint (no auth required)."""
     return jsonify({

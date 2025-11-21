@@ -63,7 +63,7 @@ def get_billing_for_company(account_number: str, year: int = None, month: int = 
         return ledger.get_billing_for_client(account_number, year, month)
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to retrieve billing information',
             'account_number': account_number
         }
 
@@ -103,7 +103,7 @@ def get_all_companies_billing(year: int = None, month: int = None) -> dict:
         return ledger.get_billing_dashboard(year, month)
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to retrieve billing dashboard',
             'companies': []
         }
 
@@ -165,7 +165,7 @@ def get_company_overrides(account_number: str) -> dict:
         return ledger.get_client_overrides(account_number)
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to retrieve billing overrides',
             'overrides': None
         }
 
@@ -206,7 +206,7 @@ def set_billing_override(account_number: str, **overrides) -> dict:
         return ledger.set_client_override(account_number, overrides)
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to set billing overrides',
             'account_number': account_number
         }
 
@@ -247,7 +247,7 @@ def add_manual_asset(
         return ledger.add_manual_asset(account_number, hostname, billing_type, custom_cost, notes)
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to add manual asset',
             'account_number': account_number
         }
 
@@ -288,7 +288,7 @@ def add_manual_user(
         return ledger.add_manual_user(account_number, full_name, billing_type, custom_cost, notes)
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to add manual user',
             'account_number': account_number
         }
 
@@ -362,7 +362,7 @@ def add_line_item(
         return ledger.add_custom_line_item(account_number, **kwargs)
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to add line item',
             'account_number': account_number
         }
 
@@ -396,6 +396,6 @@ def get_invoice_summary(account_number: str, year: int, month: int) -> dict:
         return ledger.get_invoice_summary(account_number, year, month)
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to retrieve invoice summary',
             'account_number': account_number
         }

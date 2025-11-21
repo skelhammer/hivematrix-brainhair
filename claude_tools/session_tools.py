@@ -87,7 +87,7 @@ def set_chat_title(title: str) -> dict:
     except Exception as e:
         return {
             'success': False,
-            'error': str(e)
+            'error': 'Failed to set chat title'
         }
 
 
@@ -110,5 +110,5 @@ def get_current_session_info() -> dict:
         }
     except Exception as e:
         return {
-            'error': str(e)
+            'error': 'Failed to get session info'
         }

@@ -61,7 +61,7 @@ def analyze_contract_for_company(contract_text: str, account_number: str) -> dic
         return tool.analyze_contract(contract_text, account_number)
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to analyze contract',
             'account_number': account_number
         }
 
@@ -93,7 +93,7 @@ def get_current_billing_settings(account_number: str) -> dict:
         return tool.get_current_settings(account_number)
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to retrieve billing settings',
             'account_number': account_number
         }
 
@@ -160,7 +160,7 @@ def compare_contract_terms(account_number: str, contract_terms: dict) -> dict:
         return tool.compare_contract_to_settings(account_number, contract_terms)
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to compare contract terms',
             'account_number': account_number
         }
 
@@ -248,7 +248,7 @@ def align_billing_to_contract(
         return tool.align_settings(account_number, adjustments, dry_run)
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to align billing settings',
             'account_number': account_number,
             'dry_run': dry_run
         }
@@ -293,7 +293,7 @@ def verify_contract_alignment(account_number: str, contract_terms: dict) -> dict
         return tool.verify_alignment(account_number, contract_terms)
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to verify alignment',
             'account_number': account_number
         }
 
