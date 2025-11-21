@@ -310,9 +310,6 @@ class ClaudeSession:
             db.session.add(user_msg)
             db.session.commit()
 
-            self.logger.info(f"[SESSION] Invoking Claude Code for session {self.session_id}")
-            self.logger.info(f"[SESSION] Message: {message[:100]}")
-
             # Build the full prompt with conversation history
             conversation_context = "\n\n".join([
                 f"{'User' if msg['role'] == 'user' else 'Assistant'}: {msg['content']}"
@@ -320,8 +317,6 @@ class ClaudeSession:
             ])
 
             full_prompt = f"{self.system_prompt}\n\n## Conversation History\n\n{conversation_context}"
-            self.logger.info(f"[SESSION] System prompt length: {len(self.system_prompt)} chars")
-            self.logger.info(f"[SESSION] Conversation history: {len(self.conversation_history)} messages")
 
             # Invoke Claude Code with permissions bypassed and streaming JSON output
             # This is safe since we're in a controlled server environment and only accessing HiveMatrix data
@@ -338,10 +333,8 @@ class ClaudeSession:
                     claude_bin = claude_bins[0]
 
             if not claude_bin:
-                self.logger.error(f"[SESSION] Claude Code binary not found")
                 raise RuntimeError("Claude Code binary not found. Run: npx -y @anthropic-ai/claude-code or ensure 'claude' is in PATH")
 
-            self.logger.info(f"[SESSION] Found Claude binary: {claude_bin}")
 
             cmd = [
                 claude_bin,
@@ -356,8 +349,6 @@ class ClaudeSession:
                 message  # The actual user message
             ]
 
-            self.logger.info(f"[SESSION] Command: {' '.join(cmd[:8])}... (full command has {len(cmd)} args)")
-            self.logger.info(f"[SESSION] Environment PATH: {self.env.get('PATH', 'NOT SET')[:200]}")
 
             # Run Claude Code and stream output
             process = subprocess.Popen(
@@ -383,43 +374,35 @@ class ClaudeSession:
 
             # Stream output line by line
             line_count = 0
-            self.logger.info(f"[STREAM] Starting to read from Claude Code stdout")
 
             for line in iter(process.stdout.readline, ''):
                 line_count += 1
-                self.logger.debug(f"[STREAM] Line {line_count} received (length: {len(line)})")
 
                 # Check if process has terminated
                 poll_result = process.poll()
                 if poll_result is not None:
-                    self.logger.info(f"[STREAM] Process terminated with code {poll_result} after {line_count} lines")
                     break
 
                 # Check for idle timeout
                 idle_time = time.time() - last_output_time
                 if idle_time > idle_timeout:
-                    self.logger.warning(f"[STREAM] No output for {idle_timeout}s (idle: {idle_time:.1f}s), assuming process hung")
                     process.kill()
                     yield "\n\n[Claude Code appears to have hung - terminated]"
                     break
 
                 if not line or not line.strip():
-                    self.logger.debug(f"[STREAM] Line {line_count} is empty, skipping")
                     continue
 
                 line = line.strip()
                 last_output_time = time.time()  # Reset timeout on each line
-                self.logger.debug(f"[STREAM] Line {line_count} content: {line[:100]}...")
 
                 try:
                     # Parse the JSON event from Claude Code
                     event = json.loads(line)
                     event_type = event.get('type')
-                    self.logger.debug(f"[STREAM] Line {line_count} parsed as JSON, type: {event_type}")
 
                     # Check if this is a custom approval request from a tool
                     if event_type == 'approval_request':
-                        self.logger.info(f"[STREAM] Approval request detected: {event}")
                         yield json.dumps(event)
                         continue
 
@@ -428,53 +411,44 @@ class ClaudeSession:
                         inner_event = event.get('event', {})
                         event_type = inner_event.get('type')
                         event = inner_event
-                        self.logger.debug(f"[STREAM] Unwrapped stream_event to type: {event_type}")
 
                     # Handle content_block_delta for streaming text chunks
                     if event_type == 'content_block_delta':
                         delta = event.get('delta', {})
                         delta_type = delta.get('type')
-                        self.logger.debug(f"[STREAM] content_block_delta, delta_type: {delta_type}")
 
                         if delta_type == 'text_delta':
                             # Streaming text chunk
                             text = delta.get('text', '')
                             response_text += text
-                            self.logger.debug(f"[STREAM] Yielding text chunk: {repr(text[:50])}")
                             yield text
                         elif delta_type == 'input_json_delta':
                             # Tool input streaming
                             partial_json = delta.get('partial_json', '')
                             current_tool_input += partial_json
-                            self.logger.debug(f"[STREAM] Tool input delta: {partial_json[:50]}")
 
                     # Handle content_block_start for tool calls
                     elif event_type == 'content_block_start':
                         content_block = event.get('content_block', {})
                         block_type = content_block.get('type')
-                        self.logger.info(f"[STREAM] content_block_start, block_type: {block_type}")
 
                         if block_type == 'tool_use':
                             current_tool = content_block.get('name', 'unknown')
                             current_tool_input = ""  # Reset input accumulator
-                            self.logger.info(f"[STREAM] Tool use started: {current_tool}")
                             # Don't yield yet - wait for input to accumulate
 
                     # Skip assistant message - we already got the text from content_block_delta
                     elif event_type == 'assistant':
                         # This contains the full message but we already streamed it via deltas
                         # Just use it to update our conversation history later
-                        self.logger.debug(f"[STREAM] Received assistant message (already streamed via deltas)")
                         pass
 
                     elif event_type == 'message_stop':
                         # Message complete - but check if we're waiting for tool execution
                         stop_reason = getattr(self, '_last_stop_reason', None)
-                        self.logger.info(f"[STREAM] Received message_stop event after {line_count} lines, stop_reason: {stop_reason}")
 
                         # If stop_reason is tool_use, DON'T break - keep reading for tool output
                         if stop_reason == 'tool_use':
-                            self.logger.info(f"[STREAM] Stop reason is tool_use, continuing to read tool execution output...")
                             continue
                         else:
                             # Normal completion, stop reading
@@ -482,22 +456,18 @@ class ClaudeSession:
 
                     elif event_type == 'result':
                         # Final result - message complete
-                        self.logger.info(f"[STREAM] Received result event after {line_count} lines")
                         break
 
                     elif event_type == 'system':
                         # System initialization event - send as live message
-                        self.logger.debug(f"[STREAM] System event")
                         yield json.dumps({"type": "live_message", "content": "Initializing Claude Code..."})
 
                     elif event_type == 'message_start':
                         # Message starting
-                        self.logger.debug(f"[STREAM] Message start event")
                         yield json.dumps({"type": "live_message", "content": "Claude is responding..."})
 
                     elif event_type == 'user':
                         # User message echo
-                        self.logger.debug(f"[STREAM] User message echo")
                         pass
 
                     elif event_type == 'content_block_stop':
@@ -511,67 +481,48 @@ class ClaudeSession:
                                 if current_tool == 'Bash' and 'description' in tool_input_obj:
                                     tool_display = f"Bash: {tool_input_obj['description']}"
 
-                                self.logger.info(f"[STREAM] Tool block complete: {current_tool}, input: {tool_input_obj}")
                                 yield json.dumps({"type": "thinking", "action": f"⚙️ {tool_display}"})
                             except json.JSONDecodeError:
-                                self.logger.warning(f"[STREAM] Failed to parse tool input JSON: {current_tool_input[:100]}")
                                 yield json.dumps({"type": "thinking", "action": f"⚙️ {current_tool}"})
 
                             # Reset tool tracking
                             current_tool = None
                             current_tool_input = ""
 
-                        self.logger.debug(f"[STREAM] content_block_stop")
 
                     elif event_type == 'message_delta':
                         # Message metadata update - check for stop_reason
                         delta = event.get('delta', {})
                         stop_reason = delta.get('stop_reason')
-                        self.logger.debug(f"[STREAM] message_delta, stop_reason: {stop_reason}")
 
                         # Store stop_reason for later use
                         if stop_reason:
                             self._last_stop_reason = stop_reason
 
                     else:
-                        # Log unknown events for debugging
-                        self.logger.info(f"[STREAM] Unknown event type: {event_type}, full data: {json.dumps(event)[:200]}")
+                        # Unknown event type - ignore
+                        pass
 
-                except json.JSONDecodeError as e:
+                except json.JSONDecodeError:
                     # Not JSON - could be stderr output or bash tool output
-                    self.logger.warning(f"[STREAM] Line {line_count} is NOT JSON: {line[:200]}")
-                    self.logger.warning(f"[STREAM] JSONDecodeError: {e}")
                     yield json.dumps({"type": "live_message", "content": line})
-                except Exception as e:
-                    import traceback
-                    self.logger.error(f"[STREAM] Unexpected error processing line {line_count}: {type(e).__name__}: {e}")
-                    self.logger.error(f"[STREAM] Traceback: {traceback.format_exc()}")
-                    self.logger.error(f"[STREAM] Line content was: {line[:200]}")
-
-            self.logger.info(f"[STREAM] Exited read loop after {line_count} lines, response_text length: {len(response_text)}")
+                except Exception:
+                    # Ignore other parsing errors
+                    pass
 
             # Process should already be done, but wait just in case
             if process.poll() is None:
-                self.logger.warning("[STREAM] Process still running after loop exit, waiting...")
                 try:
                     process.wait(timeout=10)
-                    self.logger.info(f"[STREAM] Process finished with code {process.returncode}")
                 except subprocess.TimeoutExpired:
-                    self.logger.error("[STREAM] Process wait timed out after 10s, killing process")
                     process.kill()
                     process.wait()
-            else:
-                self.logger.info(f"[STREAM] Process already exited with code {process.returncode}")
 
             # Check for errors
             if process.returncode != 0:
-                self.logger.error(f"[STREAM] Claude Code exited with non-zero code {process.returncode}")
                 yield f"\n\n[Error: Claude Code exited with code {process.returncode}]"
-            else:
-                self.logger.info(f"[STREAM] Claude Code completed successfully")
 
             # Add response to history
-            self.logger.info(f"[STREAM] Adding response to history (length: {len(response_text.strip())} chars)")
             self.conversation_history.append({"role": "assistant", "content": response_text.strip()})
 
             # Save assistant message to database
@@ -585,7 +536,6 @@ class ClaudeSession:
             # Update session timestamp
             self.db_session.updated_at = datetime.utcnow()
             db.session.commit()
-            self.logger.info(f"[STREAM] Saved assistant response to database")
 
         except subprocess.TimeoutExpired:
             self.logger.error(f"Claude Code timed out for session {self.session_id}")
@@ -593,9 +543,7 @@ class ClaudeSession:
                 process.kill()
             yield "\n\n[Error: Request timed out]"
         except Exception as e:
-            import traceback
-            self.logger.error(f"[SESSION] Error invoking Claude Code: {type(e).__name__}: {e}")
-            self.logger.error(f"[SESSION] Traceback: {traceback.format_exc()}")
+            self.logger.error(f"Error invoking Claude Code: {type(e).__name__}: {e}")
             yield f"\n\n[Error: Internal server error - {type(e).__name__}]"
 
     def _generate_demo_response(self, message: str) -> str:
