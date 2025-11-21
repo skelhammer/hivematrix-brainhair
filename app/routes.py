@@ -347,26 +347,29 @@ def codex_tickets():
         return jsonify({'error': 'Internal server error'}), 500
 
 
-# ==================== PSA/Ticket Integration ====================
-
-@app.route('/api/psa/tickets', methods=['GET'])
+@app.route('/api/codex/contacts', methods=['GET'])
 @token_required
-def psa_tickets():
+def codex_contacts():
     """
-    Get tickets from PSA (via Codex sync) with filtering.
+    Get contacts from Codex with filtering.
 
     Query params:
+        company_id: Filter by company ID (optional)
         filter: Filter type ("phi", "cjis", or none for PHI)
-        limit: Number of results to return (optional)
     """
     logger = get_helm_logger()
 
+    company_id = request.args.get('company_id')
     filter_type = request.args.get('filter', 'phi')
-    limit = request.args.get('limit', '50')
 
     try:
-        # Call Codex service which has PSA data
-        response = call_service('codex', f'/api/psa/tickets?limit={limit}')
+        # Build endpoint
+        endpoint = '/api/contacts'
+        if company_id:
+            endpoint += f'?company_id={company_id}'
+
+        # Call Codex service
+        response = call_service('codex', endpoint)
 
         if response.status_code == 200:
             data = response.json()
@@ -374,20 +377,145 @@ def psa_tickets():
             # Apply Presidio filtering
             filtered_data = apply_filter(data, filter_type)
 
-            logger.info(f"PSA tickets retrieved: count={len(data) if isinstance(data, list) else 'N/A'}")
+            logger.info(f"Codex contacts retrieved: count={len(filtered_data) if isinstance(filtered_data, list) else 'N/A'}")
 
             return jsonify({
-                'source': 'psa',
                 'filter_applied': filter_type,
                 'data': filtered_data
             })
         else:
-            logger.error(f"PSA tickets retrieval failed: {response.status_code}")
-            return jsonify({'error': 'PSA tickets retrieval failed'}), response.status_code
+            logger.error(f"Codex contacts retrieval failed: {response.status_code}")
+            return jsonify({'error': 'Contacts retrieval failed'}), response.status_code
 
     except Exception as e:
-        logger.error(f"Error calling PSA via Codex: {e}")
+        logger.error(f"Error calling Codex: {e}")
         return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/codex/contact/<int:contact_id>', methods=['GET'])
+@token_required
+def codex_contact(contact_id: int):
+    """
+    Get a specific contact from Codex with filtering.
+
+    Query params:
+        filter: Filter type ("phi", "cjis", or none for PHI)
+    """
+    logger = get_helm_logger()
+
+    filter_type = request.args.get('filter', 'phi')
+
+    try:
+        # Call Codex service
+        response = call_service('codex', f'/api/contact/{contact_id}')
+
+        if response.status_code == 200:
+            data = response.json()
+
+            # Apply Presidio filtering
+            filtered_data = apply_filter(data, filter_type)
+
+            logger.info(f"Codex contact retrieved: contact_id={contact_id}")
+
+            return jsonify({
+                'contact_id': contact_id,
+                'filter_applied': filter_type,
+                'data': filtered_data
+            })
+        else:
+            logger.error(f"Codex contact retrieval failed: {response.status_code}")
+            return jsonify({'error': 'Contact not found'}), response.status_code
+
+    except Exception as e:
+        logger.error(f"Error calling Codex: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/codex/assets', methods=['GET'])
+@token_required
+def codex_assets():
+    """
+    Get assets from Codex with filtering.
+
+    Query params:
+        company_id: Filter by company ID (optional)
+        filter: Filter type ("phi", "cjis", or none for PHI)
+    """
+    logger = get_helm_logger()
+
+    company_id = request.args.get('company_id')
+    filter_type = request.args.get('filter', 'phi')
+
+    try:
+        # Build endpoint
+        endpoint = '/api/assets'
+        if company_id:
+            endpoint += f'?company_id={company_id}'
+
+        # Call Codex service
+        response = call_service('codex', endpoint)
+
+        if response.status_code == 200:
+            data = response.json()
+
+            # Apply Presidio filtering
+            filtered_data = apply_filter(data, filter_type)
+
+            logger.info(f"Codex assets retrieved: count={len(filtered_data) if isinstance(filtered_data, list) else 'N/A'}")
+
+            return jsonify({
+                'filter_applied': filter_type,
+                'data': filtered_data
+            })
+        else:
+            logger.error(f"Codex assets retrieval failed: {response.status_code}")
+            return jsonify({'error': 'Assets retrieval failed'}), response.status_code
+
+    except Exception as e:
+        logger.error(f"Error calling Codex: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/codex/asset/<int:asset_id>', methods=['GET'])
+@token_required
+def codex_asset(asset_id: int):
+    """
+    Get a specific asset from Codex with filtering.
+
+    Query params:
+        filter: Filter type ("phi", "cjis", or none for PHI)
+    """
+    logger = get_helm_logger()
+
+    filter_type = request.args.get('filter', 'phi')
+
+    try:
+        # Call Codex service
+        response = call_service('codex', f'/api/asset/{asset_id}')
+
+        if response.status_code == 200:
+            data = response.json()
+
+            # Apply Presidio filtering
+            filtered_data = apply_filter(data, filter_type)
+
+            logger.info(f"Codex asset retrieved: asset_id={asset_id}")
+
+            return jsonify({
+                'asset_id': asset_id,
+                'filter_applied': filter_type,
+                'data': filtered_data
+            })
+        else:
+            logger.error(f"Codex asset retrieval failed: {response.status_code}")
+            return jsonify({'error': 'Asset not found'}), response.status_code
+
+    except Exception as e:
+        logger.error(f"Error calling Codex: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+# ==================== Codex Ticket Integration ====================
 
 @app.route('/api/codex/ticket/<int:ticket_id>', methods=['GET'])
 @token_required
@@ -429,11 +557,61 @@ def codex_ticket(ticket_id: int):
         return jsonify({'error': 'Internal server error'}), 500
 
 
-@app.route('/api/psa/ticket/<int:ticket_id>', methods=['GET'])
+# ==================== Beacon Integration ====================
+
+@app.route('/api/beacon/tickets', methods=['GET'])
 @token_required
-def psa_ticket(ticket_id: int):
+def beacon_tickets():
     """
-    Get a specific ticket from PSA with filtering.
+    Get tickets from Beacon dashboard with filtering.
+
+    Query params:
+        filter: Filter type ("phi", "cjis", or none for PHI)
+        status: Optional status filter
+        limit: Number of results to return (optional)
+    """
+    logger = get_helm_logger()
+
+    filter_type = request.args.get('filter', 'phi')
+    status = request.args.get('status')
+    limit = request.args.get('limit', '50')
+
+    try:
+        # Build query parameters
+        params = {'limit': limit}
+        if status:
+            params['status'] = status
+
+        # Call Beacon service
+        response = call_service('beacon', '/api/tickets', params=params)
+
+        if response.status_code == 200:
+            data = response.json()
+
+            # Apply Presidio filtering
+            filtered_data = apply_filter(data, filter_type)
+
+            logger.info(f"Beacon tickets retrieved: count={len(filtered_data) if isinstance(filtered_data, list) else 'N/A'}")
+
+            return jsonify({
+                'source': 'beacon',
+                'filter_applied': filter_type,
+                'data': filtered_data
+            })
+        else:
+            logger.error(f"Beacon tickets retrieval failed: {response.status_code}")
+            return jsonify({'error': 'Beacon tickets retrieval failed'}), response.status_code
+
+    except Exception as e:
+        logger.error(f"Error calling Beacon: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/beacon/ticket/<int:ticket_id>', methods=['GET'])
+@token_required
+def beacon_ticket(ticket_id: int):
+    """
+    Get a specific ticket from Beacon with filtering.
 
     Query params:
         filter: Filter type ("phi", "cjis", or none for PHI)
@@ -443,8 +621,8 @@ def psa_ticket(ticket_id: int):
     filter_type = request.args.get('filter', 'phi')
 
     try:
-        # Call Codex service - uses generic ticket endpoint
-        response = call_service('codex', f'/api/ticket/{ticket_id}')
+        # Call Beacon service
+        response = call_service('beacon', f'/api/ticket/{ticket_id}')
 
         if response.status_code == 200:
             data = response.json()
@@ -452,76 +630,28 @@ def psa_ticket(ticket_id: int):
             # Apply Presidio filtering
             filtered_data = apply_filter(data, filter_type)
 
-            logger.info(f"PSA ticket retrieved: ticket_id={ticket_id}")
+            logger.info(f"Beacon ticket retrieved: ticket_id={ticket_id}")
 
             return jsonify({
-                'source': 'psa',
+                'source': 'beacon',
                 'ticket_id': ticket_id,
                 'filter_applied': filter_type,
                 'data': filtered_data
             })
         else:
-            logger.error(f"PSA ticket retrieval failed: {response.status_code}")
+            logger.error(f"Beacon ticket retrieval failed: {response.status_code}")
             return jsonify({'error': 'Ticket not found'}), response.status_code
 
     except Exception as e:
-        logger.error(f"Error calling PSA via Codex: {e}")
+        logger.error(f"Error calling Beacon: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 
-# ==================== Datto Integration ====================
-
-@app.route('/api/datto/devices', methods=['GET'])
+@app.route('/api/beacon/dashboard', methods=['GET'])
 @token_required
-def datto_devices():
+def beacon_dashboard():
     """
-    Get devices from Datto (via Codex sync) with filtering.
-
-    Query params:
-        filter: Filter type ("phi", "cjis", or none for PHI)
-        company_id: Filter by company (optional)
-    """
-    logger = get_helm_logger()
-
-    filter_type = request.args.get('filter', 'phi')
-    company_id = request.args.get('company_id')
-
-    try:
-        # Build endpoint
-        endpoint = '/api/datto/devices'
-        if company_id:
-            endpoint += f'?company_id={company_id}'
-
-        # Call Codex service
-        response = call_service('codex', endpoint)
-
-        if response.status_code == 200:
-            data = response.json()
-
-            # Apply Presidio filtering
-            filtered_data = apply_filter(data, filter_type)
-
-            logger.info(f"Datto devices retrieved: count={len(data) if isinstance(data, list) else 'N/A'}")
-
-            return jsonify({
-                'source': 'datto',
-                'filter_applied': filter_type,
-                'data': filtered_data
-            })
-        else:
-            logger.error(f"Datto devices retrieval failed: {response.status_code}")
-            return jsonify({'error': 'Datto devices retrieval failed'}), response.status_code
-
-    except Exception as e:
-        logger.error(f"Error calling Datto via Codex: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
-
-
-@app.route('/api/datto/device/<device_id>', methods=['GET'])
-@token_required
-def datto_device(device_id: str):
-    """
-    Get a specific device from Datto with filtering.
+    Get dashboard data from Beacon with filtering.
 
     Query params:
         filter: Filter type ("phi", "cjis", or none for PHI)
@@ -531,8 +661,8 @@ def datto_device(device_id: str):
     filter_type = request.args.get('filter', 'phi')
 
     try:
-        # Call Codex service
-        response = call_service('codex', f'/api/datto/device/{device_id}')
+        # Call Beacon service
+        response = call_service('beacon', '/api/dashboard')
 
         if response.status_code == 200:
             data = response.json()
@@ -540,20 +670,146 @@ def datto_device(device_id: str):
             # Apply Presidio filtering
             filtered_data = apply_filter(data, filter_type)
 
-            logger.info(f"Datto device retrieved: device_id={device_id}")
+            logger.info("Beacon dashboard retrieved")
 
             return jsonify({
-                'source': 'datto',
-                'device_id': device_id,
+                'source': 'beacon',
                 'filter_applied': filter_type,
                 'data': filtered_data
             })
         else:
-            logger.error(f"Datto device retrieval failed: {response.status_code}")
-            return jsonify({'error': 'Device not found'}), response.status_code
+            logger.error(f"Beacon dashboard retrieval failed: {response.status_code}")
+            return jsonify({'error': 'Dashboard retrieval failed'}), response.status_code
 
     except Exception as e:
-        logger.error(f"Error calling Datto via Codex: {e}")
+        logger.error(f"Error calling Beacon: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+# ==================== Archive Integration ====================
+
+@app.route('/api/archive/search', methods=['GET'])
+@token_required
+def archive_search():
+    """
+    Search archived data with filtering.
+
+    Query params:
+        q: Search query
+        filter: Filter type ("phi", "cjis", or none for PHI)
+        limit: Number of results to return (optional)
+    """
+    logger = get_helm_logger()
+
+    query = request.args.get('q', '')
+    filter_type = request.args.get('filter', 'phi')
+    limit = request.args.get('limit', '50')
+
+    try:
+        # Call Archive service
+        response = call_service('archive', '/api/search', params={'q': query, 'limit': limit})
+
+        if response.status_code == 200:
+            data = response.json()
+
+            # Apply Presidio filtering
+            filtered_data = apply_filter(data, filter_type)
+
+            logger.info(f"Archive search completed: query='{query}'")
+
+            return jsonify({
+                'source': 'archive',
+                'query': query,
+                'filter_applied': filter_type,
+                'data': filtered_data
+            })
+        else:
+            logger.error(f"Archive search failed: {response.status_code}")
+            return jsonify({'error': 'Archive search failed'}), response.status_code
+
+    except Exception as e:
+        logger.error(f"Error calling Archive: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/archive/items', methods=['GET'])
+@token_required
+def archive_items():
+    """
+    List archived items with filtering.
+
+    Query params:
+        filter: Filter type ("phi", "cjis", or none for PHI)
+        limit: Number of results to return (optional)
+    """
+    logger = get_helm_logger()
+
+    filter_type = request.args.get('filter', 'phi')
+    limit = request.args.get('limit', '50')
+
+    try:
+        # Call Archive service
+        response = call_service('archive', '/api/items', params={'limit': limit})
+
+        if response.status_code == 200:
+            data = response.json()
+
+            # Apply Presidio filtering
+            filtered_data = apply_filter(data, filter_type)
+
+            logger.info(f"Archive items retrieved: count={len(filtered_data) if isinstance(filtered_data, list) else 'N/A'}")
+
+            return jsonify({
+                'source': 'archive',
+                'filter_applied': filter_type,
+                'data': filtered_data
+            })
+        else:
+            logger.error(f"Archive items retrieval failed: {response.status_code}")
+            return jsonify({'error': 'Archive items retrieval failed'}), response.status_code
+
+    except Exception as e:
+        logger.error(f"Error calling Archive: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/archive/item/<int:item_id>', methods=['GET'])
+@token_required
+def archive_item(item_id: int):
+    """
+    Get a specific archived item with filtering.
+
+    Query params:
+        filter: Filter type ("phi", "cjis", or none for PHI)
+    """
+    logger = get_helm_logger()
+
+    filter_type = request.args.get('filter', 'phi')
+
+    try:
+        # Call Archive service
+        response = call_service('archive', f'/api/item/{item_id}')
+
+        if response.status_code == 200:
+            data = response.json()
+
+            # Apply Presidio filtering
+            filtered_data = apply_filter(data, filter_type)
+
+            logger.info(f"Archive item retrieved: item_id={item_id}")
+
+            return jsonify({
+                'source': 'archive',
+                'item_id': item_id,
+                'filter_applied': filter_type,
+                'data': filtered_data
+            })
+        else:
+            logger.error(f"Archive item retrieval failed: {response.status_code}")
+            return jsonify({'error': 'Item not found'}), response.status_code
+
+    except Exception as e:
+        logger.error(f"Error calling Archive: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 
