@@ -310,7 +310,8 @@ class ClaudeSession:
             db.session.add(user_msg)
             db.session.commit()
 
-            self.logger.info(f"Invoking Claude Code for session {self.session_id}: {message[:50]}...")
+            self.logger.info(f"[SESSION] Invoking Claude Code for session {self.session_id}")
+            self.logger.info(f"[SESSION] Message: {message[:100]}")
 
             # Build the full prompt with conversation history
             conversation_context = "\n\n".join([
@@ -319,6 +320,8 @@ class ClaudeSession:
             ])
 
             full_prompt = f"{self.system_prompt}\n\n## Conversation History\n\n{conversation_context}"
+            self.logger.info(f"[SESSION] System prompt length: {len(self.system_prompt)} chars")
+            self.logger.info(f"[SESSION] Conversation history: {len(self.conversation_history)} messages")
 
             # Invoke Claude Code with permissions bypassed and streaming JSON output
             # This is safe since we're in a controlled server environment and only accessing HiveMatrix data
@@ -335,7 +338,11 @@ class ClaudeSession:
                     claude_bin = claude_bins[0]
 
             if not claude_bin:
+                self.logger.error(f"[SESSION] Claude Code binary not found")
                 raise RuntimeError("Claude Code binary not found. Run: npx -y @anthropic-ai/claude-code or ensure 'claude' is in PATH")
+
+            self.logger.info(f"[SESSION] Found Claude binary: {claude_bin}")
+
             cmd = [
                 claude_bin,
                 '--model', 'claude-sonnet-4-5',
@@ -349,7 +356,8 @@ class ClaudeSession:
                 message  # The actual user message
             ]
 
-            self.logger.info(f"Running: {' '.join(cmd[:4])}... <message>")
+            self.logger.info(f"[SESSION] Command: {' '.join(cmd[:8])}... (full command has {len(cmd)} args)")
+            self.logger.info(f"[SESSION] Environment PATH: {self.env.get('PATH', 'NOT SET')[:200]}")
 
             # Run Claude Code and stream output
             process = subprocess.Popen(
@@ -536,7 +544,9 @@ class ClaudeSession:
                     self.logger.warning(f"[STREAM] JSONDecodeError: {e}")
                     yield json.dumps({"type": "live_message", "content": line})
                 except Exception as e:
-                    self.logger.error(f"[STREAM] Unexpected error processing line {line_count}: {e}", exc_info=True)
+                    import traceback
+                    self.logger.error(f"[STREAM] Unexpected error processing line {line_count}: {type(e).__name__}: {e}")
+                    self.logger.error(f"[STREAM] Traceback: {traceback.format_exc()}")
                     self.logger.error(f"[STREAM] Line content was: {line[:200]}")
 
             self.logger.info(f"[STREAM] Exited read loop after {line_count} lines, response_text length: {len(response_text)}")
@@ -584,8 +594,10 @@ class ClaudeSession:
                 process.kill()
             yield "\n\n[Error: Request timed out]"
         except Exception as e:
-            self.logger.error(f"Error invoking Claude Code: {e}", exc_info=True)
-            yield f"\n\n[Error: Internal server error]"
+            import traceback
+            self.logger.error(f"[SESSION] Error invoking Claude Code: {type(e).__name__}: {e}")
+            self.logger.error(f"[SESSION] Traceback: {traceback.format_exc()}")
+            yield f"\n\n[Error: Internal server error - {type(e).__name__}]"
 
     def _generate_demo_response(self, message: str) -> str:
         """
@@ -701,7 +713,7 @@ What would you like to try?"""
                 self.logger.info(f"Successfully terminated Claude Code process for session {self.session_id}")
                 return True
             except Exception as e:
-                self.logger.error(f"Error terminating process: {e}", exc_info=True)
+                self.logger.error(f"Error terminating process: {e}")
                 return False
         else:
             self.logger.info(f"No active process to stop for session {self.session_id}")
@@ -752,7 +764,7 @@ class ClaudeSessionManager:
                 self.logger.info(f"Created session {session_id} (new DB session {session.db_session_id}) for user {user}")
             return session_id
         except Exception as e:
-            self.logger.error(f"Failed to create session: {e}", exc_info=True)
+            self.logger.error(f"Failed to create session: {e}")
             raise
 
     def get_session(self, session_id: str) -> Optional[ClaudeSession]:
@@ -831,7 +843,7 @@ class ClaudeSessionManager:
                 self.cleanup_idle_sessions(max_age_seconds=1800)
 
             except Exception as e:
-                self.logger.error(f"Error in cleanup loop: {e}", exc_info=True)
+                self.logger.error(f"Error in cleanup loop: {e}")
 
         self.logger.info("Session cleanup thread stopped")
 
