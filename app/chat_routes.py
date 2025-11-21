@@ -430,7 +430,7 @@ def approve_command():
         logger.info(f"User {user} approved command {command_id}: {command['command']}")
 
         # Execute the command
-        # TODO: Implement actual remote execution via Datto RMM
+        # NOTE: Datto RMM integration not yet implemented (see main TODO list)
         output = execute_remote_command(command['device_id'], command['command'])
 
         # Update command status
@@ -502,8 +502,8 @@ def execute_remote_command(device_id: str, command: str) -> str:
     Returns:
         Command output
     """
-    # TODO: Implement actual Datto RMM integration
-    # For now, return simulated output
+    # NOTE: Datto RMM integration not yet implemented (see main TODO list)
+    # Currently returns simulated output
 
     logger = get_helm_logger()
     logger.info(f"Simulated command execution on device {device_id}: {command}")
