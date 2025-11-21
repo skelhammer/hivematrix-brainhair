@@ -182,7 +182,8 @@ class HelmLogger:
         # Add request context if available
         if has_request_context():
             log_entry["trace_id"] = getattr(g, 'trace_id', None)
-            log_entry["user_id"] = getattr(g, 'user', {}).get('sub')
+            user = getattr(g, 'user', None)
+            log_entry["user_id"] = user.get('sub') if user else None
             log_entry["context"]["path"] = request.path
             log_entry["context"]["method"] = request.method
 
