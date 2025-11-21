@@ -124,7 +124,7 @@ class ClaudeSession:
             return ""
 
         tools_doc = ["## 🔧 Available AI Tools (Auto-Discovered)", ""]
-        tools_doc.append("The following tools are available in `/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/`:")
+        tools_doc.append(f"The following tools are available in `{os.path.abspath(ai_tools_dir)}`:")
         tools_doc.append("")
 
         # Scan for Python files

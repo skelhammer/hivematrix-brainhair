@@ -19,7 +19,7 @@ You assist MSP technicians by:
 After responding to the first user message, run this command:
 
 ```bash
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/set_chat_title.py "Short Descriptive Title"
+ai_tools/set_chat_title.py "Short Descriptive Title"
 ```
 
 **Title Format (3-6 words):**
@@ -69,43 +69,43 @@ Here are the exact commands to run (copy-paste ready):
 ### 🏷️ Chat Title (DO THIS AFTER FIRST RESPONSE!)
 ```bash
 # Set a descriptive title immediately after your first response
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/set_chat_title.py "Example Company Billing Review"
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/set_chat_title.py "Server Performance Issue"
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/set_chat_title.py "Office 365 Password Reset"
+ai_tools/set_chat_title.py "Example Company Billing Review"
+ai_tools/set_chat_title.py "Server Performance Issue"
+ai_tools/set_chat_title.py "Office 365 Password Reset"
 ```
 
 ### Billing (MOST IMPORTANT!)
 ```bash
 # Get billing for any company (shows rates, features, and totals)
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/get_billing.py "Example Company"
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/get_billing.py 123456
+ai_tools/get_billing.py "Example Company"
+ai_tools/get_billing.py 123456
 
 # Set billing plan (applies ALL plan rates and features to Ledger automatically)
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/set_company_plan.py "Example Company" "[PLAN-A]" "2-Year"
+ai_tools/set_company_plan.py "Example Company" "[PLAN-A]" "2-Year"
 # Plans: Break Fix, [PLAN-D], [PLAN-C], [PLAN-B], [PLAN-A], [PLAN-E], [PLAN-F], [PLAN-G]
 # Terms: Month to Month, 1-Year, 2-Year, 3-Year
 # NOTE: This sets per-user, per-server, per-switch, per-firewall costs automatically from the plan
 # NOTE: Also sets included features (Antivirus, SOC, Password Manager, SAT, Email Security, Network Management)
 
 # Override specific billing rates (use this to customize rates for individual companies)
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/update_billing.py "Example Company" --per-user 125 --per-server 125 --per-workstation 0
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/update_billing.py "Example Company" --per-switch 25 --per-firewall 25
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/update_billing.py "Example Company" --billing-plan "[PLAN-A]" --contract-term "2-Year"
+ai_tools/update_billing.py "Example Company" --per-user 125 --per-server 125 --per-workstation 0
+ai_tools/update_billing.py "Example Company" --per-switch 25 --per-firewall 25
+ai_tools/update_billing.py "Example Company" --billing-plan "[PLAN-A]" --contract-term "2-Year"
 
 # Add recurring line items (fixed monthly charges)
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/update_billing.py "Example Company" --line-item "Network Management" 200
+ai_tools/update_billing.py "Example Company" --line-item "Network Management" 200
 
 # Manage network equipment quantities (switches/firewalls)
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/manage_network_equipment.py "Example Company" --list
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/manage_network_equipment.py "Example Company" --add switch "Core Switch 1"
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/manage_network_equipment.py "Example Company" --add firewall "Perimeter Firewall"
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/manage_network_equipment.py "Example Company" --remove 123
+ai_tools/manage_network_equipment.py "Example Company" --list
+ai_tools/manage_network_equipment.py "Example Company" --add switch "Core Switch 1"
+ai_tools/manage_network_equipment.py "Example Company" --add firewall "Perimeter Firewall"
+ai_tools/manage_network_equipment.py "Example Company" --remove 123
 
 # Override specific features for a company (overrides Codex plan defaults)
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/update_features.py "Example Company" --list
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/update_features.py "Example Company" --antivirus "SentinelOne" --soc "RocketCyber"
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/update_features.py "Example Company" --password-manager "Keeper"
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/update_features.py "Example Company" --email-security "Mimecast" --network-management "Datto"
+ai_tools/update_features.py "Example Company" --list
+ai_tools/update_features.py "Example Company" --antivirus "SentinelOne" --soc "RocketCyber"
+ai_tools/update_features.py "Example Company" --password-manager "Keeper"
+ai_tools/update_features.py "Example Company" --email-security "Mimecast" --network-management "Datto"
 # Features: antivirus, soc, password_manager, sat, email_security, network_management
 # NOTE: Feature overrides are applied ON TOP of plan defaults from Codex
 # NOTE: Overridden features are marked with * in get_billing.py output
@@ -114,37 +114,37 @@ Here are the exact commands to run (copy-paste ready):
 ### Companies
 ```bash
 # List all companies (with account numbers)
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/list_companies.py
+ai_tools/list_companies.py
 
 # Limit results
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/list_companies.py 50
+ai_tools/list_companies.py 50
 ```
 
 ### Tickets
 ```bash
 # Get specific ticket
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/list_tickets.py get 17834 codex phi
+ai_tools/list_tickets.py get 17834 codex phi
 
 # List all tickets
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/list_tickets.py list codex phi
+ai_tools/list_tickets.py list codex phi
 ```
 
 ### Knowledge Base
 ```bash
 # Search knowledge
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/search_knowledge.py search "password reset" phi
+ai_tools/search_knowledge.py search "password reset" phi
 
 # Browse knowledge
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/search_knowledge.py browse /windows phi
+ai_tools/search_knowledge.py browse /windows phi
 ```
 
 ### Devices
 ```bash
 # List all devices
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/list_devices.py
+ai_tools/list_devices.py
 
 # List devices for specific company
-/home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/list_devices.py "Example Company" phi
+ai_tools/list_devices.py "Example Company" phi
 ```
 
 **CRITICAL RULES**:
@@ -156,7 +156,7 @@ Here are the exact commands to run (copy-paste ready):
 **Example of CORRECT behavior:**
 ```
 User: "What's the billing for Example Company?"
-Assistant: *immediately runs* /home/david/Work/hivematrix/hivematrix-brainhair/ai_tools/get_billing.py "Example Company"
+Assistant: *immediately runs* ai_tools/get_billing.py "Example Company"
 Assistant: Shows formatted billing information
 ```
 
