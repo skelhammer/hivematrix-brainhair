@@ -152,7 +152,7 @@
             currentStreamingMessage = null;
             textBuffer = '';
             displayedLength = 0;
-            stopTypewriter();
+            stopTypewriter(true);
 
             // Show typing indicator and stop button
             showTyping();
@@ -230,30 +230,37 @@
                         hideTyping();
                         hideStopButton();
 
-                        // Stop typewriter and finalize the streaming message with formatting
-                        stopTypewriter();
-                        if (currentStreamingMessage) {
-                            const rawText = textBuffer; // Use buffer, not textContent
-                            const parent = currentStreamingMessage.parentElement;
-                            parent.removeChild(currentStreamingMessage);
-                            parent.innerHTML = formatMessage(rawText);
-                            currentStreamingMessage = null;
-                            textBuffer = '';
-                            displayedLength = 0;
-                        }
+                        // Let typewriter finish naturally, then format
+                        const finishTyping = setInterval(() => {
+                            if (displayedLength >= textBuffer.length) {
+                                clearInterval(finishTyping);
+                                stopTypewriter();
+
+                                // Now format the completed message
+                                if (currentStreamingMessage) {
+                                    const rawText = textBuffer;
+                                    const parent = currentStreamingMessage.parentElement;
+                                    parent.removeChild(currentStreamingMessage);
+                                    parent.innerHTML = formatMessage(rawText);
+                                    currentStreamingMessage = null;
+                                    textBuffer = '';
+                                    displayedLength = 0;
+                                }
+
+                                // Final scroll to bottom
+                                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                            }
+                        }, 50);
 
                         if (data.error) {
                             addMessage('assistant', `❌ Error: ${data.error}`);
                         }
-
-                        // Final scroll to bottom
-                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
                     }
                 } catch (error) {
                     clearInterval(pollingInterval);
                     hideTyping();
                     hideStopButton();
-                    stopTypewriter();
+                    stopTypewriter(true); // Immediate stop for errors
                     currentStreamingMessage = null;
                     textBuffer = '';
                     displayedLength = 0;
@@ -303,19 +310,23 @@
                         lastScrollTime = now;
                     }
                 }
-            }, 20); // 20ms per character = smooth 50 chars/second
+            }, 8); // 8ms per character = smooth 125 chars/second
         }
 
-        function stopTypewriter() {
+        function stopTypewriter(immediate = false) {
             if (typewriterInterval) {
                 clearInterval(typewriterInterval);
                 typewriterInterval = null;
             }
-            // Display any remaining buffered text
-            if (currentStreamingMessage && displayedLength < textBuffer.length) {
-                currentStreamingMessage.textContent = textBuffer;
-                displayedLength = textBuffer.length;
+
+            if (immediate) {
+                // Instant display for errors
+                if (currentStreamingMessage && displayedLength < textBuffer.length) {
+                    currentStreamingMessage.textContent = textBuffer;
+                    displayedLength = textBuffer.length;
+                }
             }
+            // Otherwise let the typewriter naturally finish in the background
         }
 
         function appendToLastMessage(content) {
