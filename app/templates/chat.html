@@ -116,6 +116,9 @@
         let currentApprovalId = null;
         let lastScrollTime = 0;
         let currentStreamingMessage = null;
+        let textBuffer = '';  // Buffer for typewriter effect
+        let typewriterInterval = null;  // Interval for character-by-character display
+        let displayedLength = 0;  // How many characters have been displayed
 
         // Auto-resize textarea
         const textarea = document.getElementById('message-input');
@@ -145,8 +148,11 @@
             // Add user message to UI
             addMessage('user', message);
 
-            // Reset streaming message for new response
+            // Reset streaming state for new response
             currentStreamingMessage = null;
+            textBuffer = '';
+            displayedLength = 0;
+            stopTypewriter();
 
             // Show typing indicator and stop button
             showTyping();
@@ -224,13 +230,16 @@
                         hideTyping();
                         hideStopButton();
 
-                        // Finalize the streaming message with formatting
+                        // Stop typewriter and finalize the streaming message with formatting
+                        stopTypewriter();
                         if (currentStreamingMessage) {
-                            const rawText = currentStreamingMessage.textContent;
+                            const rawText = textBuffer; // Use buffer, not textContent
                             const parent = currentStreamingMessage.parentElement;
                             parent.removeChild(currentStreamingMessage);
                             parent.innerHTML = formatMessage(rawText);
                             currentStreamingMessage = null;
+                            textBuffer = '';
+                            displayedLength = 0;
                         }
 
                         if (data.error) {
@@ -244,7 +253,10 @@
                     clearInterval(pollingInterval);
                     hideTyping();
                     hideStopButton();
+                    stopTypewriter();
                     currentStreamingMessage = null;
+                    textBuffer = '';
+                    displayedLength = 0;
                     addMessage('assistant', `❌ Error: ${error.message}`);
                 }
             }, 300); // Poll every 300ms
@@ -271,6 +283,39 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
             return contentDiv;
+        }
+
+        function startTypewriter() {
+            if (typewriterInterval) return; // Already running
+
+            const messagesDiv = document.getElementById('messages');
+
+            typewriterInterval = setInterval(() => {
+                if (displayedLength < textBuffer.length) {
+                    // Display next character
+                    displayedLength++;
+                    currentStreamingMessage.textContent = textBuffer.substring(0, displayedLength);
+
+                    // Throttled scroll
+                    const now = Date.now();
+                    if (now - lastScrollTime > 100) {
+                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                        lastScrollTime = now;
+                    }
+                }
+            }, 20); // 20ms per character = smooth 50 chars/second
+        }
+
+        function stopTypewriter() {
+            if (typewriterInterval) {
+                clearInterval(typewriterInterval);
+                typewriterInterval = null;
+            }
+            // Display any remaining buffered text
+            if (currentStreamingMessage && displayedLength < textBuffer.length) {
+                currentStreamingMessage.textContent = textBuffer;
+                displayedLength = textBuffer.length;
+            }
         }
 
         function appendToLastMessage(content) {
@@ -316,17 +361,13 @@
 
                     currentStreamingMessage = streamingContainer;
                 }
+
+                // Start typewriter effect when first chunk arrives
+                startTypewriter();
             }
 
-            // Append text content directly (much faster than innerHTML)
-            currentStreamingMessage.textContent += content;
-
-            // Throttled scroll (max once per 100ms to reduce reflows)
-            const now = Date.now();
-            if (now - lastScrollTime > 100) {
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                lastScrollTime = now;
-            }
+            // Add content to buffer instead of directly to DOM
+            textBuffer += content;
         }
 
         function formatMessage(text) {
