@@ -10,6 +10,7 @@ from .auth import token_required
 from .service_client import call_service
 from .helm_logger import get_helm_logger
 from .claude_session_manager import get_session_manager
+from .presidio_filter import apply_filter
 import json
 import uuid
 import time
@@ -301,19 +302,22 @@ def build_context(ticket: Optional[str], client: Optional[str], user: str) -> Di
         ]
     }
 
-    # If we have a ticket, fetch its details from Codex
+    # If we have a ticket, fetch its details from Codex directly
     if ticket:
         try:
-            response = call_service('brainhair', f'/api/codex/ticket/{ticket}', params={'filter': 'phi'})
+            # Call Codex API directly (more efficient than calling our own proxy)
+            response = call_service('codex', f'/api/ticket/{ticket}')
             if response.status_code == 200:
                 ticket_data = response.json()
+                # Apply PHI filtering inline
+                filtered_ticket = apply_filter(ticket_data, 'phi')
                 context['ticket_details'] = {
-                    'id': ticket_data.get('id'),
-                    'title': ticket_data.get('title'),
-                    'status': ticket_data.get('status'),
-                    'priority': ticket_data.get('priority'),
-                    'company': ticket_data.get('company_name'),
-                    'assigned_to': ticket_data.get('assigned_technician')
+                    'id': filtered_ticket.get('id'),
+                    'title': filtered_ticket.get('title') or filtered_ticket.get('subject'),
+                    'status': filtered_ticket.get('status'),
+                    'priority': filtered_ticket.get('priority'),
+                    'company': filtered_ticket.get('company_name'),
+                    'assigned_to': filtered_ticket.get('assigned_technician')
                 }
             else:
                 context['ticket_details'] = {'id': ticket, 'status': 'unknown'}
@@ -323,13 +327,17 @@ def build_context(ticket: Optional[str], client: Optional[str], user: str) -> Di
             logging.getLogger(__name__).debug(f"Could not fetch ticket details: {e}")
             context['ticket_details'] = {'id': ticket, 'status': 'unknown'}
 
-    # If we have a client, fetch their info
+    # If we have a client, fetch their info directly from Codex
     if client:
         try:
-            # Get all companies and find match by name
-            response = call_service('brainhair', '/api/codex/companies', params={'filter': 'phi'})
+            # Call Codex API directly (more efficient than calling our own proxy)
+            response = call_service('codex', '/api/companies')
             if response.status_code == 200:
-                companies = response.json().get('data', [])
+                companies_data = response.json()
+                # Apply PHI filtering inline
+                filtered_companies = apply_filter(companies_data, 'phi')
+                companies = filtered_companies.get('companies', [])
+
                 # Find company by name (case-insensitive)
                 client_lower = client.lower()
                 matching_company = None
