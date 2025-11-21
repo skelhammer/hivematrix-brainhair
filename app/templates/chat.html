@@ -6,7 +6,7 @@
     <title>Brainhair - AI Assistant</title>
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body>
+<body class="u-no-scroll">
     <div class="chat">
         <div class="chat__header">
             <h1 class="chat__title">Brainhair</h1>
@@ -114,6 +114,8 @@
         let currentResponseId = null;
         let currentOffset = 0;
         let currentApprovalId = null;
+        let lastScrollTime = 0;
+        let currentStreamingMessage = null;
 
         // Auto-resize textarea
         const textarea = document.getElementById('message-input');
@@ -142,6 +144,9 @@
 
             // Add user message to UI
             addMessage('user', message);
+
+            // Reset streaming message for new response
+            currentStreamingMessage = null;
 
             // Show typing indicator and stop button
             showTyping();
@@ -186,6 +191,8 @@
                 clearInterval(pollingInterval);
             }
 
+            const messagesDiv = document.getElementById('messages');
+
             pollingInterval = setInterval(async () => {
                 try {
                     const url = API_CHAT_POLL.replace('{response_id}', currentResponseId) + `?offset=${currentOffset}`;
@@ -217,14 +224,27 @@
                         hideTyping();
                         hideStopButton();
 
+                        // Finalize the streaming message with formatting
+                        if (currentStreamingMessage) {
+                            const rawText = currentStreamingMessage.textContent;
+                            const parent = currentStreamingMessage.parentElement;
+                            parent.removeChild(currentStreamingMessage);
+                            parent.innerHTML = formatMessage(rawText);
+                            currentStreamingMessage = null;
+                        }
+
                         if (data.error) {
                             addMessage('assistant', `❌ Error: ${data.error}`);
                         }
+
+                        // Final scroll to bottom
+                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
                     }
                 } catch (error) {
                     clearInterval(pollingInterval);
                     hideTyping();
                     hideStopButton();
+                    currentStreamingMessage = null;
                     addMessage('assistant', `❌ Error: ${error.message}`);
                 }
             }, 300); // Poll every 300ms
@@ -255,26 +275,58 @@
 
         function appendToLastMessage(content) {
             const messagesDiv = document.getElementById('messages');
-            const messages = messagesDiv.querySelectorAll('.chat__message');
 
-            if (messages.length === 0) {
-                addMessage('assistant', content);
-                return;
+            // Create streaming message if it doesn't exist
+            if (!currentStreamingMessage) {
+                const messages = messagesDiv.querySelectorAll('.chat__message');
+                const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+
+                // If last message is from user or not an assistant message, create new one
+                if (!lastMessage || !lastMessage.classList.contains('chat__message--assistant')) {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = 'chat__message chat__message--assistant';
+
+                    const avatar = document.createElement('div');
+                    avatar.className = 'chat__message-avatar';
+                    avatar.textContent = '🧠';
+
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'chat__message-content';
+
+                    // Create a text node container for streaming
+                    const streamingContainer = document.createElement('div');
+                    streamingContainer.className = 'chat__streaming-text';
+                    contentDiv.appendChild(streamingContainer);
+
+                    messageDiv.appendChild(avatar);
+                    messageDiv.appendChild(contentDiv);
+                    messagesDiv.appendChild(messageDiv);
+
+                    currentStreamingMessage = streamingContainer;
+                } else {
+                    // Use existing message
+                    const contentDiv = lastMessage.querySelector('.chat__message-content');
+                    let streamingContainer = contentDiv.querySelector('.chat__streaming-text');
+
+                    if (!streamingContainer) {
+                        streamingContainer = document.createElement('div');
+                        streamingContainer.className = 'chat__streaming-text';
+                        contentDiv.appendChild(streamingContainer);
+                    }
+
+                    currentStreamingMessage = streamingContainer;
+                }
             }
 
-            const lastMessage = messages[messages.length - 1];
+            // Append text content directly (much faster than innerHTML)
+            currentStreamingMessage.textContent += content;
 
-            // If last message is from user or not an assistant message, create new one
-            if (!lastMessage.classList.contains('chat__message--assistant')) {
-                addMessage('assistant', content);
-                return;
+            // Throttled scroll (max once per 100ms to reduce reflows)
+            const now = Date.now();
+            if (now - lastScrollTime > 100) {
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                lastScrollTime = now;
             }
-
-            const contentDiv = lastMessage.querySelector('.chat__message-content');
-            contentDiv.innerHTML += formatMessage(content);
-
-            // Scroll to bottom
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
         function formatMessage(text) {
