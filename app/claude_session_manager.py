@@ -19,6 +19,35 @@ from .helm_logger import get_helm_logger
 from .presidio_filter import filter_data
 
 
+def _get_user_display_name(user_id: str) -> str:
+    """
+    Get user's display name from Core service.
+
+    Args:
+        user_id: User ID (from JWT sub claim)
+
+    Returns:
+        Display name if found, otherwise returns user_id
+    """
+    try:
+        from .service_client import call_service
+        # Try to get user info from Core
+        response = call_service('core', f'/api/users/{user_id}')
+        if response.status_code == 200:
+            user_data = response.json()
+            # Try various name fields
+            return (user_data.get('display_name') or
+                    user_data.get('full_name') or
+                    user_data.get('name') or
+                    user_id)
+    except Exception as e:
+        # Log error but don't fail - fallback to user_id
+        import logging
+        logging.getLogger(__name__).debug(f"Could not fetch user display name: {e}")
+
+    return user_id
+
+
 class ClaudeSession:
     """
     Manages a Claude Code session context.
@@ -47,6 +76,7 @@ class ClaudeSession:
         self.conversation_history = []
         self.db_session_id = db_session_id
         self.current_process = None  # Track running Claude Code process
+        self.last_activity = time.time()  # Track last activity for idle cleanup
 
         # Load or create database session
         if db_session_id:
@@ -68,10 +98,13 @@ class ClaudeSession:
 
         # Create new database session if needed
         if not self.db_session:
+            # Get user's display name from Core service
+            user_display_name = _get_user_display_name(self.user)
+
             self.db_session = ChatSessionModel(
                 id=str(uuid.uuid4()),
                 user_id=self.user,
-                user_name=self.user,  # TODO: Get actual name from user service
+                user_name=user_display_name,
                 ticket_number=context.get('ticket'),
                 client_name=context.get('client')
             )
@@ -250,6 +283,9 @@ class ClaudeSession:
         Yields:
             Response chunks
         """
+        # Update last activity timestamp
+        self.last_activity = time.time()
+
         try:
             # Import inside method to ensure app context is available
             from extensions import db
@@ -681,6 +717,9 @@ class ClaudeSessionManager:
         """Initialize the session manager."""
         self.sessions: Dict[str, ClaudeSession] = {}
         self.logger = get_helm_logger()
+        self._cleanup_thread = None
+        self._cleanup_stop_event = None
+        self._start_cleanup_thread()
 
     def create_session(self, user: str, context: Dict, db_session_id: Optional[str] = None) -> str:
         """
@@ -733,15 +772,74 @@ class ClaudeSessionManager:
             session.stop()
             self.logger.info(f"Destroyed session {session_id}")
 
-    def cleanup_idle_sessions(self, max_age_seconds: int = 3600):
+    def cleanup_idle_sessions(self, max_age_seconds: int = 1800):
         """
         Clean up idle sessions older than max_age.
 
         Args:
-            max_age_seconds: Maximum age in seconds before cleanup
+            max_age_seconds: Maximum age in seconds before cleanup (default: 30 minutes)
         """
-        # TODO: Implement idle tracking and cleanup
-        pass
+        import time
+        current_time = time.time()
+        sessions_to_cleanup = []
+
+        # Find idle sessions
+        for session_id, session in self.sessions.items():
+            idle_time = current_time - session.last_activity
+            if idle_time > max_age_seconds:
+                sessions_to_cleanup.append(session_id)
+                self.logger.info(
+                    f"Session {session_id} idle for {int(idle_time)}s, marking for cleanup"
+                )
+
+        # Clean up idle sessions
+        for session_id in sessions_to_cleanup:
+            self.destroy_session(session_id)
+
+        if sessions_to_cleanup:
+            self.logger.info(f"Cleaned up {len(sessions_to_cleanup)} idle session(s)")
+
+        return len(sessions_to_cleanup)
+
+    def _start_cleanup_thread(self):
+        """Start background thread for periodic session cleanup."""
+        import threading
+        self._cleanup_stop_event = threading.Event()
+        self._cleanup_thread = threading.Thread(target=self._cleanup_loop, daemon=True)
+        self._cleanup_thread.start()
+        self.logger.info("Started session cleanup background thread")
+
+    def _cleanup_loop(self):
+        """Background loop that runs cleanup periodically."""
+        import time
+        cleanup_interval = 300  # Run cleanup every 5 minutes
+
+        while not self._cleanup_stop_event.is_set():
+            try:
+                # Wait for the interval or stop event
+                if self._cleanup_stop_event.wait(timeout=cleanup_interval):
+                    break  # Stop event was set
+
+                # Run cleanup (30 minute idle timeout)
+                self.cleanup_idle_sessions(max_age_seconds=1800)
+
+            except Exception as e:
+                self.logger.error(f"Error in cleanup loop: {e}", exc_info=True)
+
+        self.logger.info("Session cleanup thread stopped")
+
+    def shutdown(self):
+        """Shutdown the session manager and cleanup thread."""
+        if self._cleanup_stop_event:
+            self._cleanup_stop_event.set()
+        if self._cleanup_thread:
+            self._cleanup_thread.join(timeout=5)
+
+        # Destroy all remaining sessions
+        for session_id in list(self.sessions.keys()):
+            self.destroy_session(session_id)
+
+        self.logger.info("Session manager shutdown complete")
 
 
 # Global session manager instance
