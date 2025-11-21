@@ -60,7 +60,7 @@ def get_devices(company_id: int = None, status: str = None) -> dict:
         return response.json()
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to retrieve devices',
             'devices': [],
             'count': 0
         }
@@ -111,7 +111,7 @@ def get_device(device_id: str) -> dict:
         return response.json()
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to retrieve device details',
             'id': device_id
         }
 
@@ -216,7 +216,7 @@ def get_command_status(command_id: str) -> dict:
         return response.json()
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to retrieve command status',
             'command_id': command_id,
             'status': 'unknown'
         }

@@ -67,16 +67,25 @@ class HelmLogger:
         self.log_queue = queue.Queue()
         self.stop_event = threading.Event()
         self.token = None
+        self.token_expires_at = 0  # Timestamp when token expires
 
         # Start background thread for sending logs
         self.sender_thread = threading.Thread(target=self._send_loop, daemon=True)
         self.sender_thread.start()
 
     def _get_service_token(self) -> Optional[str]:
-        """Get a service token from Core for authenticating with Helm"""
-        if self.token:
+        """
+        Get a service token from Core for authenticating with Helm.
+
+        Caches the token and proactively refreshes it before expiration.
+        Service tokens expire after 5 minutes.
+        """
+        # Check if we have a cached token that's still valid
+        # Refresh 30 seconds before expiration to avoid race conditions
+        if self.token and time.time() < (self.token_expires_at - 30):
             return self.token
 
+        # Token expired or doesn't exist, get a new one
         core_url = os.environ.get('CORE_SERVICE_URL', 'http://localhost:5000')
         try:
             response = requests.post(
@@ -89,6 +98,8 @@ class HelmLogger:
             )
             if response.status_code == 200:
                 self.token = response.json().get('token')
+                # Service tokens expire in 5 minutes (300 seconds)
+                self.token_expires_at = time.time() + 300
                 return self.token
         except Exception as e:
             logging.error(f"Failed to get service token: {e}")
@@ -115,7 +126,9 @@ class HelmLogger:
                 timeout=5
             )
             if response.status_code == 401:
-                self.token = None  # Clear cached token so it gets refreshed
+                # Token invalid/expired - clear cache and mark as expired
+                self.token = None
+                self.token_expires_at = 0
                 logging.error(f"Failed to send logs to Helm: {response.status_code} {response.text}")
             elif response.status_code != 200:
                 logging.error(f"Failed to send logs to Helm: {response.status_code} {response.text}")
@@ -169,9 +182,7 @@ class HelmLogger:
         # Add request context if available
         if has_request_context():
             log_entry["trace_id"] = getattr(g, 'trace_id', None)
-            user = getattr(g, 'user', None)
-            if user and isinstance(user, dict):
-                log_entry["user_id"] = user.get('sub')
+            log_entry["user_id"] = getattr(g, 'user', {}).get('sub')
             log_entry["context"]["path"] = request.path
             log_entry["context"]["method"] = request.method
 
@@ -189,12 +200,8 @@ class HelmLogger:
         """Log a WARNING message"""
         self.log("WARNING", message, context)
 
-    def error(self, message: str, context: Dict[str, Any] = None, exc_info: bool = False):
+    def error(self, message: str, context: Dict[str, Any] = None):
         """Log an ERROR message"""
-        import traceback
-        if exc_info:
-            # Append traceback to message if exc_info is True
-            message = f"{message}\n{traceback.format_exc()}"
         self.log("ERROR", message, context)
 
     def critical(self, message: str, context: Dict[str, Any] = None):

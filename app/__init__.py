@@ -48,6 +48,17 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 from extensions import db
 db.init_app(app)
 
+# Initialize rate limiter
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per hour", "50 per minute"],
+    storage_uri="memory://"
+)
+
 # Load services configuration from services.json (for service-to-service calls)
 try:
     with open('services.json') as f:

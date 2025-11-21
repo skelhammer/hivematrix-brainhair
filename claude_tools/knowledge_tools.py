@@ -49,7 +49,7 @@ def search_knowledge(query: str, limit: int = 10) -> dict:
         return response.json()
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to search knowledge base',
             'results': [],
             'count': 0
         }
@@ -88,7 +88,7 @@ def browse_knowledge(path: str = '/') -> dict:
         return response.json()
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to browse knowledge base',
             'path': path,
             'categories': [],
             'articles': []
@@ -127,6 +127,6 @@ def get_article(article_id: str) -> dict:
         return response.json()
     except Exception as e:
         return {
-            'error': str(e),
+            'error': 'Failed to retrieve article',
             'id': article_id
         }
