@@ -471,21 +471,8 @@ class ClaudeSession:
                         pass
 
                     elif event_type == 'content_block_stop':
-                        # Content block finished - if it was a tool, show what tool was used
+                        # Content block finished - reset tool tracking
                         if current_tool:
-                            try:
-                                tool_input_obj = json.loads(current_tool_input) if current_tool_input else {}
-                                tool_display = current_tool
-
-                                # For Bash tool, show the description
-                                if current_tool == 'Bash' and 'description' in tool_input_obj:
-                                    tool_display = f"Bash: {tool_input_obj['description']}"
-
-                                yield json.dumps({"type": "thinking", "action": f"⚙️ {tool_display}"})
-                            except json.JSONDecodeError:
-                                yield json.dumps({"type": "thinking", "action": f"⚙️ {current_tool}"})
-
-                            # Reset tool tracking
                             current_tool = None
                             current_tool_input = ""
 

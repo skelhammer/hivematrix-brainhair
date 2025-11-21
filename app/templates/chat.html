@@ -213,9 +213,6 @@
                                 appendToLastMessage(chunk.content);
                             } else if (chunk.type === 'error') {
                                 appendToLastMessage(`\n\n❌ ${chunk.content}`);
-                            } else if (chunk.type === 'thinking') {
-                                // Tool call indicator
-                                appendToLastMessage(`\n\n⚙️ ${chunk.action}\n\n`);
                             } else if (chunk.type === 'approval_request') {
                                 // Show approval dialog
                                 console.log('Approval request received:', chunk);
