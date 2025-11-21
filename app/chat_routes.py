@@ -5,7 +5,7 @@ Handles chat interface, Claude Code integration, and command approval workflow.
 """
 
 from flask import render_template, request, jsonify, g, Response, stream_with_context
-from app import app
+from app import app, limiter
 from .auth import token_required
 from .service_client import call_service
 from .helm_logger import get_helm_logger
@@ -162,6 +162,7 @@ def chat_message():
 
 
 @app.route('/api/chat/poll/<response_id>', methods=['GET'])
+@limiter.exempt
 @token_required
 def poll_response(response_id):
     """Poll for new chunks from a running Claude Code response."""
