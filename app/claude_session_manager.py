@@ -121,6 +121,12 @@ class ClaudeSession:
         self.env['BRAINHAIR_SESSION_ID'] = self.db_session_id  # For session tools
         self.env['BRAINHAIR_URL'] = os.environ.get('SERVICE_URL', 'http://localhost:5050')
 
+        # Add pyenv Python to PATH so AI tools use it
+        project_root = os.path.dirname(os.path.dirname(__file__))
+        pyenv_bin = os.path.join(project_root, 'pyenv', 'bin')
+        if os.path.exists(pyenv_bin):
+            self.env['PATH'] = pyenv_bin + ':' + self.env.get('PATH', '')
+
         # Path to our tools directory
         tools_dir = os.path.join(os.path.dirname(__file__), '..', 'claude_tools')
         self.env['PYTHONPATH'] = tools_dir + ':' + self.env.get('PYTHONPATH', '')
