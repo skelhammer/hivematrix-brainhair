@@ -145,7 +145,7 @@ def chat_message():
                 logger.info(f"Stream complete for {response_id}, collected {chunk_count} chunks")
                 response_buffers[response_id]['done'] = True
             except Exception as e:
-                logger.error(f"Error collecting response: {e}", exc_info=True)
+                logger.error(f"Error collecting response: {e}")
                 response_buffers[response_id]['error'] = 'Internal server error'
                 response_buffers[response_id]['done'] = True
 
@@ -158,7 +158,7 @@ def chat_message():
         })
 
     except Exception as e:
-        logger.error(f"Chat error: {e}", exc_info=True)
+        logger.error(f"Chat error: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 
@@ -259,7 +259,7 @@ def stop_response(response_id):
             return jsonify({'error': 'Session not found'}), 404
 
     except Exception as e:
-        logger.error(f"Error stopping response: {e}", exc_info=True)
+        logger.error(f"Error stopping response: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 
@@ -426,7 +426,7 @@ def approve_command():
         })
 
     except Exception as e:
-        logger.error(f"Command approval error: {e}", exc_info=True)
+        logger.error(f"Command approval error: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 
@@ -466,7 +466,7 @@ def deny_command():
         return jsonify({'status': 'denied'})
 
     except Exception as e:
-        logger.error(f"Command denial error: {e}", exc_info=True)
+        logger.error(f"Command denial error: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 
@@ -515,7 +515,7 @@ def destroy_session(session_id: str):
         logger.info(f"Destroyed session {session_id}")
         return jsonify({'status': 'destroyed'})
     except Exception as e:
-        logger.error(f"Error destroying session: {e}", exc_info=True)
+        logger.error(f"Error destroying session: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 
@@ -551,7 +551,7 @@ def get_command_status(command_id: str):
         })
 
     except Exception as e:
-        logger.error(f"Error getting command status: {e}", exc_info=True)
+        logger.error(f"Error getting command status: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 
@@ -612,7 +612,7 @@ def list_chat_sessions():
         })
 
     except Exception as e:
-        logger.error(f"Error listing chat sessions: {e}", exc_info=True)
+        logger.error(f"Error listing chat sessions: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 
@@ -650,7 +650,7 @@ def get_chat_session(session_id):
         return jsonify(session_dict)
 
     except Exception as e:
-        logger.error(f"Error getting chat session: {e}", exc_info=True)
+        logger.error(f"Error getting chat session: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 
@@ -712,7 +712,7 @@ def search_chat_history():
         })
 
     except Exception as e:
-        logger.error(f"Error searching chat history: {e}", exc_info=True)
+        logger.error(f"Error searching chat history: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 
@@ -769,7 +769,7 @@ def update_session_title(session_id):
         })
 
     except Exception as e:
-        logger.error(f"Error updating session title: {e}", exc_info=True)
+        logger.error(f"Error updating session title: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 
@@ -817,7 +817,7 @@ def create_approval_request():
         })
 
     except Exception as e:
-        logger.error(f"Error creating approval request: {e}", exc_info=True)
+        logger.error(f"Error creating approval request: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 
@@ -893,5 +893,5 @@ def respond_to_approval(approval_id):
         })
 
     except Exception as e:
-        logger.error(f"Error responding to approval: {e}", exc_info=True)
+        logger.error(f"Error responding to approval: {e}")
         return jsonify({'error': 'Internal server error'}), 500
