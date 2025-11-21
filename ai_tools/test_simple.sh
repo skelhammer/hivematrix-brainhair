@@ -1,9 +1,13 @@
 #!/bin/bash
-cd /home/david/Work/hivematrix/hivematrix-helm
+# Get the directory of this script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HIVEMATRIX_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+cd "$HIVEMATRIX_ROOT/hivematrix-helm"
 source pyenv/bin/activate
 TOKEN=$(python create_test_token.py 2>/dev/null | tail -1)
 
-cd /home/david/Work/hivematrix/hivematrix-brainhair/ai_tools
+cd "$SCRIPT_DIR"
 python3 << EOF
 from brainhair_simple import SimpleBrainHairClient
 

@@ -13,6 +13,7 @@ from .claude_session_manager import get_session_manager
 import json
 import uuid
 import time
+from datetime import datetime
 from typing import Dict, List, Any, Optional
 import os
 
@@ -332,7 +333,7 @@ def create_command_request(command: str, device_id: str, reason: str) -> Dict:
         'device_id': device_id,
         'reason': reason,
         'status': 'pending',
-        'created_at': None  # TODO: Add timestamp
+        'created_at': datetime.utcnow().isoformat()
     }
 
     return {

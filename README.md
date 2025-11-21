@@ -6,7 +6,7 @@ AI-powered chat interface for natural language interaction with HiveMatrix.
 
 BrainHair provides a conversational interface to HiveMatrix, allowing users to query data, update billing, manage companies, and perform actions through natural language.
 
-**Port:** 5020
+**Port:** 5050
 
 ## Features
 
