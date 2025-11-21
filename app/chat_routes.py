@@ -290,34 +290,22 @@ def build_context(ticket: Optional[str], client: Optional[str], user: str) -> Di
         ]
     }
 
-    # If we have a ticket, fetch its details
+    # If we have a ticket, fetch its details from Codex
     if ticket:
         try:
-            # Try PSA first, fallback to Codex
-            try:
-                response = call_service('brainhair', f'/api/psa/ticket/{ticket}', params={'filter': 'phi'})
-                if response.status_code == 200:
-                    ticket_data = response.json()
-                    context['ticket_details'] = {
-                        'id': ticket_data.get('id'),
-                        'title': ticket_data.get('title'),
-                        'status': ticket_data.get('status'),
-                        'priority': ticket_data.get('priority'),
-                        'company': ticket_data.get('company_name'),
-                        'assigned_to': ticket_data.get('assigned_technician')
-                    }
-            except Exception:
-                # Fallback to Codex
-                response = call_service('brainhair', f'/api/codex/ticket/{ticket}', params={'filter': 'phi'})
-                if response.status_code == 200:
-                    ticket_data = response.json()
-                    context['ticket_details'] = {
-                        'id': ticket_data.get('id'),
-                        'title': ticket_data.get('title'),
-                        'status': ticket_data.get('status'),
-                        'priority': ticket_data.get('priority'),
-                        'company': ticket_data.get('company_name')
-                    }
+            response = call_service('brainhair', f'/api/codex/ticket/{ticket}', params={'filter': 'phi'})
+            if response.status_code == 200:
+                ticket_data = response.json()
+                context['ticket_details'] = {
+                    'id': ticket_data.get('id'),
+                    'title': ticket_data.get('title'),
+                    'status': ticket_data.get('status'),
+                    'priority': ticket_data.get('priority'),
+                    'company': ticket_data.get('company_name'),
+                    'assigned_to': ticket_data.get('assigned_technician')
+                }
+            else:
+                context['ticket_details'] = {'id': ticket, 'status': 'unknown'}
         except Exception as e:
             # Log but don't fail - ticket details are optional context
             import logging
