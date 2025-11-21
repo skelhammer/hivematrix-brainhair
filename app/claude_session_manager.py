@@ -296,6 +296,7 @@ class ClaudeSession:
             cmd = [
                 claude_bin,
                 '--model', 'claude-sonnet-4-5',
+                '--disallowed-tools', 'Edit', 'Write', 'NotebookEdit',  # READ ONLY - No code modifications
                 '--verbose',  # Required for --output-format=stream-json
                 '--print',  # Required for --output-format
                 '--output-format', 'stream-json',  # Get real-time streaming JSON
