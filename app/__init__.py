@@ -2,6 +2,7 @@ from flask import Flask
 import json
 import os
 import configparser
+import secrets
 
 app = Flask(__name__, instance_relative_config=True)
 
@@ -12,6 +13,9 @@ app.logger.setLevel(getattr(logging, log_level, logging.INFO))
 
 # Enable template auto-reload for development
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+
+# Secret key for session management
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
 
 # --- Explicitly load all required configuration from environment variables ---
 app.config['CORE_SERVICE_URL'] = os.environ.get('CORE_SERVICE_URL')
