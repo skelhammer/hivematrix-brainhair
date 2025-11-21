@@ -382,20 +382,33 @@
         }
 
         function formatMessage(text) {
-            // Simple markdown-like formatting
+            // Preserve code blocks first (replace with placeholders)
+            const codeBlocks = [];
+            text = text.replace(/```([\s\S]*?)```/g, (match, code) => {
+                codeBlocks.push(`<pre><code>${code}</code></pre>`);
+                return `__CODEBLOCK_${codeBlocks.length - 1}__`;
+            });
+
+            // Markdown-like formatting
             text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
             text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
-
-            // Code blocks
-            text = text.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
-
-            // Inline code
             text = text.replace(/`(.*?)`/g, '<code>$1</code>');
 
-            // Convert newlines to <br> if not in a block element
-            if (!text.includes('<pre>') && !text.includes('<ul>')) {
-                text = text.replace(/\n/g, '<br>');
+            // Convert double newlines to paragraph breaks
+            text = text.replace(/\n\n/g, '</p><p>');
+
+            // Convert single newlines to <br>
+            text = text.replace(/\n/g, '<br>');
+
+            // Wrap in paragraph tags if not empty
+            if (text.trim()) {
+                text = '<p>' + text + '</p>';
             }
+
+            // Restore code blocks
+            codeBlocks.forEach((block, i) => {
+                text = text.replace(`__CODEBLOCK_${i}__`, block);
+            });
 
             return text;
         }
