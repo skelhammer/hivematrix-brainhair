@@ -230,18 +230,16 @@
                         hideTyping();
                         hideStopButton();
 
-                        // Let typewriter finish naturally, then format
+                        // Let typewriter finish naturally, then keep formatting as-is
                         const finishTyping = setInterval(() => {
                             if (displayedLength >= textBuffer.length) {
                                 clearInterval(finishTyping);
                                 stopTypewriter();
 
-                                // Now format the completed message
+                                // Keep the message as-is with preserved whitespace
+                                // Apply CSS to preserve whitespace formatting
                                 if (currentStreamingMessage) {
-                                    const rawText = textBuffer;
-                                    const parent = currentStreamingMessage.parentElement;
-                                    parent.removeChild(currentStreamingMessage);
-                                    parent.innerHTML = formatMessage(rawText);
+                                    currentStreamingMessage.style.whiteSpace = 'pre-wrap';
                                     currentStreamingMessage = null;
                                     textBuffer = '';
                                     displayedLength = 0;
