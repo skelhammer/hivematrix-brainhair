@@ -21,7 +21,7 @@ def request_approval(action: str, details: dict, timeout: int = 120) -> bool:
 
     Args:
         action: Description of the action (e.g., "Update per-user cost to $100")
-        details: Dict with details to show user (e.g., {'company': 'Example Company', 'old_value': '$125', 'new_value': '$100'})
+        details: Dict with details to show user (e.g., {'company': 'Company Name', 'old_value': '$125', 'new_value': '$100'})
         timeout: Seconds to wait for approval (default 120)
 
     Returns:

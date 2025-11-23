@@ -8,10 +8,10 @@ Sets a company's billing plan and contract term. This will:
 
 Usage:
     python set_company_plan.py <company_name_or_account> <plan_name> <term_length>
-    python set_company_plan.py "Example Company" "[PLAN-A]" "2-Year"
-    python set_company_plan.py 123456 "[PLAN-B]" "Month to Month"
+    python set_company_plan.py "Company Name" "Plan Name" "2-Year"
+    python set_company_plan.py 123456 "Another Plan" "Month to Month"
 
-Available Plans: Break Fix, [PLAN-D], [PLAN-C], [PLAN-B], [PLAN-A], [PLAN-E], [PLAN-F], [PLAN-G]
+Available plans are fetched dynamically from Codex.
 Available Terms: Month to Month, 1-Year, 2-Year, 3-Year
 """
 
@@ -46,6 +46,27 @@ def get_service_token(target_service):
         return None
     except Exception:
         return None
+
+
+def get_available_plans():
+    """Fetch available billing plan names from Codex."""
+    token = get_service_token("codex")
+    if not token:
+        return []
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    try:
+        response = requests.get(f"{CODEX_URL}/api/billing-plans", headers=headers, timeout=5)
+        if response.status_code != 200:
+            return []
+
+        plans = response.json()
+        # Extract unique plan names
+        plan_names = sorted(set(plan['plan_name'] for plan in plans if plan.get('plan_name')))
+        return plan_names
+    except Exception:
+        return []
 
 
 def find_company(search_term):
@@ -177,9 +198,11 @@ def apply_plan_to_ledger(account_number, plan):
 
 def main():
     if len(sys.argv) < 4:
+        available_plans = get_available_plans()
         print("Usage: python set_company_plan.py <company_name_or_account> <plan_name> <term_length>")
-        print("Example: python set_company_plan.py 'Example Company' '[PLAN-A]' '2-Year'")
-        print("\nAvailable Plans: Break Fix, [PLAN-D], [PLAN-C], [PLAN-B], [PLAN-A], [PLAN-E], [PLAN-F], [PLAN-G]")
+        print("Example: python set_company_plan.py 'Company Name' 'Plan Name' '2-Year'")
+        if available_plans:
+            print(f"\nAvailable Plans: {', '.join(available_plans)}")
         print("Available Terms: Month to Month, 1-Year, 2-Year, 3-Year")
         sys.exit(1)
 

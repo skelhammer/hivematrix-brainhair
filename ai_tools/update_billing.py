@@ -8,7 +8,7 @@ This is used when aligning billing with contract terms.
 Usage:
     python update_billing.py <company_name_or_account> --per-user 125 --per-server 125
     python update_billing.py 123456 --per-user 125 --per-server 125 --per-workstation 0
-    python update_billing.py "Example Company" --line-item "Network Management" 200
+    python update_billing.py "Company Name" --line-item "Network Management" 200
 """
 
 import sys
@@ -43,6 +43,27 @@ def get_service_token(target_service):
         return None
     except Exception:
         return None
+
+
+def get_available_plans():
+    """Fetch available billing plan names from Codex."""
+    token = get_service_token("codex")
+    if not token:
+        return []
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    try:
+        response = requests.get(f"{CODEX_URL}/api/billing-plans", headers=headers, timeout=5)
+        if response.status_code != 200:
+            return []
+
+        plans = response.json()
+        # Extract unique plan names
+        plan_names = sorted(set(plan['plan_name'] for plan in plans if plan.get('plan_name')))
+        return plan_names
+    except Exception:
+        return []
 
 
 def find_company(search_term):
@@ -212,9 +233,7 @@ def main():
     parser.add_argument('--per-hour', type=float, help='Cost per hour of support')
     parser.add_argument('--prepaid-hours', type=float, help='Prepaid hours per month')
     parser.add_argument('--billing-plan', type=str,
-                        choices=['[PLAN-D]', '[PLAN-C]', '[PLAN-B]', '[PLAN-A]',
-                                '[PLAN-E]', '[PLAN-F]', 'Break Fix', '[PLAN-G]'],
-                        help='Set billing plan type')
+                        help='Set billing plan type (fetched from Codex)')
     parser.add_argument('--contract-term', type=str,
                         choices=['Month to Month', '1-Year', '2-Year', '3-Year'],
                         help='Set contract term length')
@@ -222,6 +241,14 @@ def main():
                         help='Add recurring line item (name and monthly amount)')
 
     args = parser.parse_args()
+
+    # Validate billing plan if provided
+    if args.billing_plan:
+        available_plans = get_available_plans()
+        if available_plans and args.billing_plan not in available_plans:
+            print(f"ERROR: Invalid billing plan '{args.billing_plan}'")
+            print(f"Available plans: {', '.join(available_plans)}")
+            sys.exit(1)
 
     # Find company
     print(f"Searching for company: {args.company}")

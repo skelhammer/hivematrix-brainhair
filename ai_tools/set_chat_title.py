@@ -5,7 +5,7 @@ Set Chat Title
 Sets the title for the current chat session.
 
 Usage:
-    python set_chat_title.py "Example Company Billing Setup"
+    python set_chat_title.py "Example Chat Title"
 """
 
 import sys

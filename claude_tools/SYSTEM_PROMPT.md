@@ -77,23 +77,23 @@ ai_tools/set_chat_title.py "Office 365 Password Reset"
 ### Billing (MOST IMPORTANT!)
 ```bash
 # Get billing for any company (shows rates, features, and totals)
-ai_tools/get_billing.py "Example Company"
+ai_tools/get_billing.py "Company Name"
 ai_tools/get_billing.py 123456
 
 # Set billing plan (applies ALL plan rates and features to Ledger automatically)
-ai_tools/set_company_plan.py "Example Company" "[PLAN-A]" "2-Year"
-# Plans: Break Fix, [PLAN-D], [PLAN-C], [PLAN-B], [PLAN-A], [PLAN-E], [PLAN-F], [PLAN-G]
+ai_tools/set_company_plan.py "Company Name" "Plan Name" "2-Year"
+# Plans are fetched dynamically from Codex (run without args to see available plans)
 # Terms: Month to Month, 1-Year, 2-Year, 3-Year
 # NOTE: This sets per-user, per-server, per-switch, per-firewall costs automatically from the plan
 # NOTE: Also sets included features (Antivirus, SOC, Password Manager, SAT, Email Security, Network Management)
 
 # Override specific billing rates (use this to customize rates for individual companies)
-ai_tools/update_billing.py "Example Company" --per-user 125 --per-server 125 --per-workstation 0
-ai_tools/update_billing.py "Example Company" --per-switch 25 --per-firewall 25
-ai_tools/update_billing.py "Example Company" --billing-plan "[PLAN-A]" --contract-term "2-Year"
+ai_tools/update_billing.py "Company Name" --per-user 125 --per-server 125 --per-workstation 0
+ai_tools/update_billing.py "Company Name" --per-switch 25 --per-firewall 25
+ai_tools/update_billing.py "Company Name" --billing-plan "Plan Name" --contract-term "2-Year"
 
 # Add recurring line items (fixed monthly charges)
-ai_tools/update_billing.py "Example Company" --line-item "Network Management" 200
+ai_tools/update_billing.py "Company Name" --line-item "Network Management" 200
 
 # Manage network equipment quantities (switches/firewalls)
 ai_tools/manage_network_equipment.py "Example Company" --list
@@ -244,7 +244,7 @@ When aligning contracts, focus on **PER-UNIT RATES**, NOT total contract amounts
 ```
 Line Item                          Quantity  Unit Price  Total
 ─────────────────────────────────────────────────────────────
-[PLAN-A] (users)                    40   $125/user   $5,000
+User Management                         40   $125/user   $5,000
 Server Management                        4   $125/server   $500
 Network Management (fixed monthly)      1      $200      $200
 Onboarding Fee (ONE-TIME)               1      $720      $720  ← IGNORE!
@@ -310,7 +310,7 @@ Onboarding Fee (ONE-TIME)               1      $720      $720  ← IGNORE!
 from billing_tools import get_billing_for_company, set_billing_override, add_line_item
 
 # User pastes contract with these line items:
-# - [PLAN-A]: 40 users @ $125/user = $5,000/month
+# - User Management: 40 users @ $125/user = $5,000/month
 # - Server Management: 4 servers @ $125/server = $500/month
 # - Network Management: 4 networks @ $50/network = $200/month
 # - Onboarding Fee: $720 (ONE-TIME)
