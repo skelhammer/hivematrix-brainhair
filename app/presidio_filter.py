@@ -64,14 +64,17 @@ class PresidioFilter:
             "NRP"  # National Registry Provider (medical)
         ]
 
-        # CJIS additional entities
+        # CJIS entities (Criminal Justice Information Systems)
+        # Complies with CJIS Security Policy 5.10 - protects CJI data
         self.cjis_entities = [
-            "PERSON",
-            "US_SSN",
-            "US_DRIVER_LICENSE",
-            # "DATE_TIME",  # Excluded - dates are operational data in ticketing context
-            "LOCATION",
-            "IP_ADDRESS"
+            "PERSON",              # Suspect/victim/witness names
+            "EMAIL_ADDRESS",       # Investigative contacts
+            "PHONE_NUMBER",        # Phone evidence/contacts
+            "US_SSN",              # Subject identifiers
+            "US_DRIVER_LICENSE",   # Subject identification
+            # "DATE_TIME",         # Excluded - dates are operational data (incident timestamps, SLAs)
+            "LOCATION",            # Crime scenes, investigation locations
+            "IP_ADDRESS"           # Digital forensics data
         ]
 
         # Default to critical_entities for MSP use (minimal redaction)
