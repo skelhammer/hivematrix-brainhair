@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from app import app
 from app.service_client import call_service
-from app.presidio_filter import filter_data
+from app.presidio_filter import filter_by_compliance_level
 
 def list_tickets(status=None, company_id=None, limit=10):
     """List tickets with optional filters."""
@@ -38,15 +38,19 @@ def list_tickets(status=None, company_id=None, limit=10):
                 print(f"Error: {data['error']}")
                 return
 
-            # Filter PHI/CJIS data before showing to Claude
-            data = filter_data(data)
-
+            # Filter each ticket based on its company's compliance level
             tickets = data.get('tickets', [])
+            filtered_tickets = []
+            for ticket in tickets:
+                compliance_level = ticket.get('company_compliance_level', 'standard')
+                filtered_ticket = filter_by_compliance_level(ticket, compliance_level)
+                filtered_tickets.append(filtered_ticket)
+
             total = data.get('total', 0)
 
-            print(f"\nFound {total} total tickets, showing {len(tickets)}:\n")
+            print(f"\nFound {total} total tickets, showing {len(filtered_tickets)}:\n")
 
-            for ticket in tickets:
+            for ticket in filtered_tickets:
                 print(f"#{ticket['id']}: {ticket['subject']}")
                 print(f"  Status: {ticket['status']} | Priority: {ticket['priority']}")
                 print(f"  Company: {ticket.get('company_id', 'N/A')}")

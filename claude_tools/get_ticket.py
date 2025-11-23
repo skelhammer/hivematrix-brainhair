@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from app import app
 from app.service_client import call_service
-from app.presidio_filter import filter_data
+from app.presidio_filter import filter_by_compliance_level
 import json
 
 def get_ticket(ticket_id):
@@ -31,8 +31,9 @@ def get_ticket(ticket_id):
                 print(f"Error: {ticket['error']}")
                 return
 
-            # Filter PHI/CJIS data before showing to Claude
-            ticket = filter_data(ticket)
+            # Get company compliance level and apply appropriate filtering
+            compliance_level = ticket.get('company_compliance_level', 'standard')
+            ticket = filter_by_compliance_level(ticket, compliance_level)
 
             # Print formatted ticket info
             print(f"\nTicket #{ticket['id']}")

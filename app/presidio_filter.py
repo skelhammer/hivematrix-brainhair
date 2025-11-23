@@ -295,3 +295,42 @@ def filter_data(data: Any, fields_to_filter: Optional[List[str]] = None) -> Any:
     """
     filter_instance = get_presidio_filter()
     return filter_instance.filter_phi(data, fields_to_filter)
+
+
+def filter_by_compliance_level(data: Any, compliance_level: str = 'standard',
+                                fields_to_filter: Optional[List[str]] = None) -> Any:
+    """
+    Filter data based on company compliance level.
+
+    Args:
+        data: Data to filter (dict, list, or str)
+        compliance_level: Compliance level ('standard', 'cjis', 'phi')
+        fields_to_filter: List of field names to filter (for dict/list of dicts)
+
+    Returns:
+        Filtered data with appropriate entities anonymized based on compliance level
+
+    Compliance levels:
+        - standard: Minimal filtering (SSN, credit cards, passports, licenses, bank accounts)
+        - cjis: Criminal justice filtering (PERSON, SSN, DRIVER_LICENSE, LOCATION, IP_ADDRESS, DATE_TIME)
+        - phi: Healthcare filtering (all PII/PHI including names, emails, phones, medical data)
+    """
+    filter_instance = get_presidio_filter()
+
+    # Map compliance level to entity list
+    if compliance_level == 'cjis':
+        entity_list = filter_instance.cjis_entities
+    elif compliance_level == 'phi':
+        entity_list = filter_instance.phi_entities
+    else:  # 'standard' or any other value defaults to standard
+        entity_list = filter_instance.critical_entities
+
+    # Apply filtering with the appropriate entity list
+    if isinstance(data, dict):
+        return filter_instance.filter_dict(data, fields_to_filter, entity_list)
+    elif isinstance(data, list):
+        return filter_instance.filter_list(data, fields_to_filter, entity_list)
+    elif isinstance(data, str):
+        return filter_instance.anonymize_text(data, entity_list)
+    else:
+        return data
