@@ -57,7 +57,7 @@ def get_devices(company_account_number: str = None, status: str = None) -> dict:
             params['status'] = status
 
         query_string = '&'.join(f'{k}={v}' for k, v in params.items()) if params else ''
-        url = f'/api/datto/devices?{query_string}' if query_string else '/api/datto/devices'
+        url = f'/api/rmm/devices?{query_string}' if query_string else '/api/rmm/devices'
 
         response = call_service('codex', url)
         return response.json()
@@ -113,7 +113,7 @@ def get_device(device_id: str) -> dict:
         >>> print(f"CPU Usage: {device['health']['cpu_usage']}%")
     """
     try:
-        response = call_service('codex', f'/api/datto/device/{device_id}')
+        response = call_service('codex', f'/api/rmm/device/{device_id}')
         return response.json()
     except Exception as e:
         return {
