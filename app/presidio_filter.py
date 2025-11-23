@@ -46,9 +46,9 @@ class PresidioFilter:
             "US_DRIVER_LICENSE",   # Driver's license numbers
         ]
 
-        # PHI entities (healthcare context - overly aggressive for MSP)
+        # HIPAA entities (healthcare context - overly aggressive for MSP)
         # Only use if supporting healthcare clients with actual PHI in tickets
-        self.phi_entities = [
+        self.hipaa_entities = [
             "PERSON",
             "EMAIL_ADDRESS",
             "PHONE_NUMBER",
@@ -226,7 +226,7 @@ class PresidioFilter:
         Filter PHI (Protected Health Information) from data.
 
         NOTE: Uses critical_entities (minimal redaction) by default.
-        For full PHI compliance, use filter_dict/filter_list with self.phi_entities.
+        For full HIPAA compliance, use filter_dict/filter_list with self.hipaa_entities.
 
         Args:
             data: Data to filter (dict, list, or str)
@@ -283,8 +283,8 @@ def filter_data(data: Any, fields_to_filter: Optional[List[str]] = None) -> Any:
     Uses critical_entities (SSN, credit cards, passports, driver's licenses, bank accounts)
     by default. Does NOT redact operational business data (names, emails, phones, addresses).
 
-    For full PHI compliance (healthcare context), use:
-        filter_instance.filter_dict(data, fields_to_filter, filter_instance.phi_entities)
+    For full HIPAA compliance (healthcare context), use:
+        filter_instance.filter_dict(data, fields_to_filter, filter_instance.hipaa_entities)
 
     Args:
         data: Data to filter (dict, list, or str)
@@ -304,7 +304,7 @@ def filter_by_compliance_level(data: Any, compliance_level: str = 'standard',
 
     Args:
         data: Data to filter (dict, list, or str)
-        compliance_level: Compliance level ('standard', 'cjis', 'phi')
+        compliance_level: Compliance level ('standard', 'cjis', 'hipaa')
         fields_to_filter: List of field names to filter (for dict/list of dicts)
 
     Returns:
@@ -312,16 +312,16 @@ def filter_by_compliance_level(data: Any, compliance_level: str = 'standard',
 
     Compliance levels:
         - standard: Minimal filtering (SSN, credit cards, passports, licenses, bank accounts)
-        - cjis: Criminal justice filtering (PERSON, SSN, DRIVER_LICENSE, LOCATION, IP_ADDRESS, DATE_TIME)
-        - phi: Healthcare filtering (all PII/PHI including names, emails, phones, medical data)
+        - cjis: Criminal justice filtering (PERSON, SSN, DRIVER_LICENSE, LOCATION, IP_ADDRESS)
+        - hipaa: Healthcare filtering (all PII/PHI including names, emails, phones, medical data)
     """
     filter_instance = get_presidio_filter()
 
     # Map compliance level to entity list
     if compliance_level == 'cjis':
         entity_list = filter_instance.cjis_entities
-    elif compliance_level == 'phi':
-        entity_list = filter_instance.phi_entities
+    elif compliance_level == 'hipaa':
+        entity_list = filter_instance.hipaa_entities
     else:  # 'standard' or any other value defaults to standard
         entity_list = filter_instance.critical_entities
 
