@@ -220,3 +220,120 @@ def update_ticket(
             'error': 'Failed to update ticket',
             'ticket_id': ticket_id
         }
+
+
+def get_company_contacts(company_account_number: str) -> list:
+    """
+    Get all contacts (users/employees) for a specific company.
+
+    Args:
+        company_account_number: Company account number (e.g., "965")
+
+    Returns:
+        [
+            {
+                "id": 123,
+                "name": "John Smith",
+                "email": "jsmith@acme-corp.example.com",
+                "title": "IT Director",
+                "employment_type": "Full Time",
+                "active": true,
+                "mobile_phone_number": "+1-555-123-4567",
+                "work_phone_number": "+1-555-987-6543",
+                "secondary_emails": "john.smith@acme-corp.example.com"
+            },
+            ...
+        ]
+
+    Example:
+        >>> contacts = get_company_contacts("965")
+        >>> active_users = [c for c in contacts if c['active']]
+        >>> print(f"Active users: {len(active_users)}")
+    """
+    try:
+        response = call_service('codex', f'/api/companies/{company_account_number}/contacts')
+        return response.json()
+    except Exception as e:
+        return {
+            'error': f'Failed to retrieve company contacts: {str(e)}',
+            'contacts': []
+        }
+
+
+def get_company_locations(company_account_number: str) -> list:
+    """
+    Get all locations for a specific company.
+
+    Args:
+        company_account_number: Company account number (e.g., "965")
+
+    Returns:
+        [
+            {
+                "id": 1,
+                "name": "Main Office",
+                "address": "123 Main St, Springfield, IL 62701",
+                "phone_number": "+1-555-555-1234"
+            },
+            ...
+        ]
+
+    Example:
+        >>> locations = get_company_locations("965")
+        >>> for loc in locations:
+        ...     print(f"{loc['name']}: {loc['address']}")
+    """
+    try:
+        response = call_service('codex', f'/api/companies/{company_account_number}/locations')
+        return response.json()
+    except Exception as e:
+        return {
+            'error': f'Failed to retrieve company locations: {str(e)}',
+            'locations': []
+        }
+
+
+def get_psa_agents(provider: str = None) -> list:
+    """
+    Get list of PSA agents (technicians) from all or specific PSA provider.
+
+    Codex aggregates agent data from PSA systems (Freshservice, SuperOps, etc.)
+    and provides a unified list regardless of the underlying PSA provider.
+
+    Args:
+        provider: Filter by provider name (optional): 'freshservice', 'superops'
+
+    Returns:
+        [
+            {
+                "id": 1,
+                "external_id": 21000000123,
+                "source": "freshservice",
+                "name": "John Technician",
+                "email": "john@integotec.com",
+                "job_title": "Senior Technician",
+                "active": true
+            },
+            ...
+        ]
+
+    Example:
+        >>> agents = get_psa_agents()
+        >>> active_techs = [a for a in agents if a['active']]
+        >>> print(f"Active technicians: {len(active_techs)}")
+    """
+    try:
+        params = {}
+        if provider:
+            params['provider'] = provider
+
+        query_string = '&'.join(f'{k}={v}' for k, v in params.items()) if params else ''
+        url = f'/api/psa/agents?{query_string}' if query_string else '/api/psa/agents'
+
+        response = call_service('codex', url)
+        return response.json()
+    except Exception as e:
+        return {
+            'error': f'Failed to retrieve PSA agents: {str(e)}',
+            'agents': []
+        }

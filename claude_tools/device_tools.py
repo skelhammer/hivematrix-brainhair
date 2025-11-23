@@ -1,8 +1,8 @@
 """
-Datto RMM Service Tools
+Device/Asset Management Tools
 
-Tools for interacting with devices and executing remote commands.
-Commands that modify systems require human approval.
+Vendor-agnostic tools for interacting with device and asset information.
+All data is retrieved from Codex service, which aggregates data from RMM providers.
 """
 
 import os
@@ -15,13 +15,16 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from app.service_client import call_service
 
 
-def get_devices(company_id: int = None, status: str = None) -> dict:
+def get_devices(company_account_number: str = None, status: str = None) -> dict:
     """
-    Get list of devices from Datto RMM.
+    Get list of managed devices from Codex.
+
+    Codex aggregates device data from RMM providers (Datto, etc.) and provides
+    a unified interface regardless of the underlying RMM system.
 
     Args:
-        company_id: Filter by company ID (optional)
-        status: Filter by status (optional): 'online', 'offline', 'warning'
+        company_account_number: Filter by company account number (optional)
+        status: Filter by status (optional): 'online', 'offline'
 
     Returns:
         {
@@ -29,12 +32,12 @@ def get_devices(company_id: int = None, status: str = None) -> dict:
                 {
                     "id": "device-123",
                     "name": "WORKSTATION-001",
-                    "company_id": 1,
-                    "company_name": "Company Name",
+                    "company_id": "965",
+                    "company_name": "Acme Corporation",
                     "status": "online",
                     "os": "Windows 11 Pro",
-                    "ip_address": "XXX.XXX.XXX.XXX",  # Filtered
-                    "last_seen": "2025-10-21T12:00:00"
+                    "ip_address": "192.168.1.100",
+                    "last_seen": "2025-11-23T12:00:00"
                 },
                 ...
             ],
@@ -42,14 +45,14 @@ def get_devices(company_id: int = None, status: str = None) -> dict:
         }
 
     Example:
-        >>> devices = get_devices(company_id=1, status='online')
+        >>> devices = get_devices(company_account_number='965', status='online')
         >>> for device in devices['devices']:
         ...     print(f"{device['name']} - {device['status']}")
     """
     try:
         params = {}
-        if company_id:
-            params['company_id'] = company_id
+        if company_account_number:
+            params['company_id'] = company_account_number
         if status:
             params['status'] = status
 
@@ -60,7 +63,7 @@ def get_devices(company_id: int = None, status: str = None) -> dict:
         return response.json()
     except Exception as e:
         return {
-            'error': 'Failed to retrieve devices',
+            'error': f'Failed to retrieve devices: {str(e)}',
             'devices': [],
             'count': 0
         }
@@ -71,20 +74,23 @@ def get_device(device_id: str) -> dict:
     Get detailed information about a specific device.
 
     Args:
-        device_id: Device identifier
+        device_id: Device identifier (format: "device-123")
 
     Returns:
         {
             "id": "device-123",
             "name": "WORKSTATION-001",
-            "company_id": 1,
-            "company_name": "Company Name",
+            "company_id": "965",
+            "company_name": "Acme Corporation",
             "status": "online",
             "os": "Windows 11 Pro",
             "os_version": "10.0.22631",
-            "ip_address": "XXX.XXX.XXX.XXX",  # Filtered
-            "mac_address": "XX:XX:XX:XX:XX:XX",  # Filtered
-            "last_seen": "2025-10-21T12:00:00",
+            "ip_address": "192.168.1.100",
+            "mac_address": "XX:XX:XX:XX:XX:XX",
+            "last_seen": "2025-11-23T12:00:00",
+            "last_logged_in_user": "jsmith",
+            "domain": "ACMECORP",
+            "antivirus": "Windows Defender",
             "installed_software": [
                 {"name": "Microsoft Office", "version": "16.0"},
                 ...
@@ -111,8 +117,53 @@ def get_device(device_id: str) -> dict:
         return response.json()
     except Exception as e:
         return {
-            'error': 'Failed to retrieve device details',
+            'error': f'Failed to retrieve device details: {str(e)}',
             'id': device_id
+        }
+
+
+def get_company_assets(company_account_number: str) -> dict:
+    """
+    Get all assets (devices, computers) for a specific company.
+
+    This provides more detailed asset information than the general device list.
+
+    Args:
+        company_account_number: Company account number (e.g., "965")
+
+    Returns:
+        [
+            {
+                "id": 123,
+                "hostname": "WORKSTATION-001",
+                "hardware_type": "Desktop",
+                "operating_system": "Windows 11 Pro",
+                "device_type": "Workstation",
+                "last_logged_in_user": "jsmith",
+                "antivirus_product": "Windows Defender",
+                "ext_ip_address": "203.0.113.45",
+                "int_ip_address": "192.168.1.100",
+                "domain": "ACMECORP",
+                "online": true,
+                "last_seen": "2025-11-23T12:00:00",
+                "backup_usage_tb": 0.5,
+                "backup_data_bytes": 549755813888
+            },
+            ...
+        ]
+
+    Example:
+        >>> assets = get_company_assets("965")
+        >>> online_count = sum(1 for a in assets if a['online'])
+        >>> print(f"Online devices: {online_count}/{len(assets)}")
+    """
+    try:
+        response = call_service('codex', f'/api/companies/{company_account_number}/assets')
+        return response.json()
+    except Exception as e:
+        return {
+            'error': f'Failed to retrieve company assets: {str(e)}',
+            'assets': []
         }
 
 
@@ -131,31 +182,20 @@ def execute_command(device_id: str, command: str, reason: str) -> dict:
     Returns:
         {
             "approval_required": true,
-            "command_id": "cmd-uuid",
             "device_id": "device-123",
-            "device_name": "WORKSTATION-001",
             "command": "Get-ComputerInfo",
             "reason": "Check system information for troubleshooting",
             "status": "pending_approval"
         }
 
-        After approval, the result will be:
-        {
-            "success": true,
-            "command_id": "cmd-uuid",
-            "output": "Command output here...",
-            "executed_at": "2025-10-21T12:05:00"
-        }
-
     Example:
-        >>> # Request to check disk space
         >>> result = execute_command(
         ...     "device-123",
         ...     "Get-PSDrive C | Select-Object Used,Free",
         ...     "Check disk space for ticket #12345"
         ... )
         >>> if result['approval_required']:
-        ...     print(f"Waiting for approval: {result['command_id']}")
+        ...     print(f"Waiting for approval...")
 
     Safety Notes:
         - All commands are logged for audit purposes
@@ -163,7 +203,7 @@ def execute_command(device_id: str, command: str, reason: str) -> dict:
         - Dangerous commands should be explained clearly in the reason
         - Read-only commands (Get-*, Test-*, Show-*) are preferred
     """
-    # This needs to go through Brain Hair's approval system
+    # This needs to go through Brainhair's approval system
     # We'll signal to the session manager that approval is needed
 
     # Output special marker for session manager to intercept
@@ -186,37 +226,3 @@ def execute_command(device_id: str, command: str, reason: str) -> dict:
         'status': 'pending_approval',
         'message': 'Command submitted for approval. Please wait for technician approval.'
     }
-
-
-def get_command_status(command_id: str) -> dict:
-    """
-    Check the status of a command execution.
-
-    Args:
-        command_id: Command identifier from execute_command
-
-    Returns:
-        {
-            "command_id": "cmd-uuid",
-            "status": "pending_approval" | "approved" | "denied" | "executed" | "failed",
-            "output": "Command output (if executed)",
-            "error": "Error message (if failed)",
-            "executed_at": "2025-10-21T12:05:00",
-            "executed_by": "Tech Name"
-        }
-
-    Example:
-        >>> status = get_command_status("cmd-uuid")
-        >>> print(f"Status: {status['status']}")
-        >>> if status['status'] == 'executed':
-        ...     print(f"Output: {status['output']}")
-    """
-    try:
-        response = call_service('brainhair', f'/api/command/{command_id}/status')
-        return response.json()
-    except Exception as e:
-        return {
-            'error': 'Failed to retrieve command status',
-            'command_id': command_id,
-            'status': 'unknown'
-        }
