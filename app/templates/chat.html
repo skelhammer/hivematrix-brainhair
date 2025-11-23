@@ -162,6 +162,7 @@
                 // Send message to backend
                 const response = await fetch(API_CHAT, {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         message: message,
@@ -202,7 +203,9 @@
             pollingInterval = setInterval(async () => {
                 try {
                     const url = API_CHAT_POLL.replace('{response_id}', currentResponseId) + `?offset=${currentOffset}`;
-                    const response = await fetch(url);
+                    const response = await fetch(url, {
+                        credentials: 'same-origin'
+                    });
                     const data = await response.json();
 
                     if (data.chunks && data.chunks.length > 0) {
@@ -499,6 +502,7 @@
                 const url = API_CHAT_STOP.replace('{response_id}', currentResponseId);
                 const response = await fetch(url, {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {'Content-Type': 'application/json'}
                 });
 
@@ -555,6 +559,7 @@
                 const url = API_APPROVAL_RESPOND.replace('{approval_id}', currentApprovalId);
                 const response = await fetch(url, {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ approved: true })
                 });
@@ -578,6 +583,7 @@
                 const url = API_APPROVAL_RESPOND.replace('{approval_id}', currentApprovalId);
                 const response = await fetch(url, {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ approved: false })
                 });
@@ -625,7 +631,9 @@
             if (sessionParam) {
                 try {
                     const url = API_HISTORY_GET.replace('{session_id}', sessionParam);
-                    const response = await fetch(url);
+                    const response = await fetch(url, {
+                        credentials: 'same-origin'
+                    });
                     const data = await response.json();
 
                     if (data.error) {
