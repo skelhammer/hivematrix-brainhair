@@ -1516,9 +1516,9 @@ def list_endpoints():
             '/api/psa/tickets': 'List PSA tickets',
             '/api/psa/ticket/<id>': 'Get specific ticket'
         },
-        'datto': {
-            '/api/datto/devices': 'List Datto devices',
-            '/api/datto/device/<id>': 'Get specific device'
+        'rmm': {
+            '/api/rmm/devices': 'List devices from RMM (vendor-agnostic)',
+            '/api/rmm/device/<id>': 'Get specific device details'
         },
         'ledger': {
             '/api/ledger/billing/<account_number>': 'Get billing data for company',

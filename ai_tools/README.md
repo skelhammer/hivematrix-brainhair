@@ -145,9 +145,9 @@ All available Brain Hair endpoints:
 - `GET /api/psa/tickets?limit=<n>&filter=<phi|cjis>`
 - `GET /api/psa/ticket/<id>?filter=<phi|cjis>`
 
-### Datto
-- `GET /api/datto/devices?company_id=<id>&filter=<phi|cjis>`
-- `GET /api/datto/device/<id>?filter=<phi|cjis>`
+### RMM (Vendor-Agnostic)
+- `GET /api/rmm/devices?company_id=<id>&filter=<phi|cjis>`
+- `GET /api/rmm/device/<id>?filter=<phi|cjis>`
 
 ### Utility
 - `GET /api/health` - Health check

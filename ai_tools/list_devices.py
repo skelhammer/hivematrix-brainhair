@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-List Devices from Datto
+List Devices from RMM
 
-Retrieves and displays all devices/computers from Datto.
+Retrieves and displays all devices/computers from the RMM system (vendor-agnostic).
 """
 
 import json
@@ -27,7 +27,7 @@ def list_devices(company_id=None, filter_type="phi"):
     if company_id:
         params["company_id"] = company_id
 
-    response = auth.get("/api/datto/devices", params=params)
+    response = auth.get("/api/rmm/devices", params=params)
 
     if response.status_code == 200:
         data = response.json()

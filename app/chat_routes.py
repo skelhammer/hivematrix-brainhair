@@ -543,7 +543,7 @@ def get_command_status(command_id: str):
     """
     Get the status of a command execution.
 
-    This is called from the datto_tools.get_command_status() function.
+    This endpoint tracks the status of remote device commands pending approval.
     """
     logger = get_helm_logger()
 

@@ -396,19 +396,19 @@ for article in results['results']:
     print(f"- {article['title']} (relevance: {article['relevance']})")
 ```
 
-### Datto RMM Tools (`from datto_tools import ...`)
+### Device/RMM Tools (`from device_tools import ...`)
 
 **Device Management:**
-- `get_devices(company_id=None, status=None)` - List devices
-- `get_device(device_id)` - Get device details and health
+- `get_devices(company_account_number=None, status=None)` - List devices from RMM (vendor-agnostic)
+- `get_device(device_id)` - Get device details and health from RMM
+- `get_company_assets(company_account_number)` - Get all assets for a company
 
 **Remote Commands:**
 - `execute_command(device_id, command, reason)` - Execute PowerShell (requires approval)
-- `get_command_status(command_id)` - Check command execution status
 
 **Example:**
 ```python
-from datto_tools import get_device, execute_command
+from device_tools import get_device, execute_command
 
 # Check device status
 device = get_device("device-123")
@@ -520,7 +520,7 @@ for t in tickets['tickets']:
 
 **Technician:** "User says their computer is slow. Check WORKSTATION-005"
 ```python
-from datto_tools import get_device
+from device_tools import get_device
 
 device = get_device("device-005")
 print(f"Device Status: {device['status']}")
