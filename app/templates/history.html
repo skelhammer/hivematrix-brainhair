@@ -1,12 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat History - Brainhair</title>
-    <script src="https://unpkg.com/lucide@latest"></script>
-</head>
-<body>
+{% extends "layout.html" %}
+
+{% block title %}Chat History{% endblock %}
+
+{% block content %}
     <div class="card u-mb-3">
         <div class="card__header">
             <h1 class="card__title">Chat History</h1>
@@ -38,125 +34,123 @@
         </div>
     </div>
 
-    <script>
-        const API_HISTORY = "{{ url_for('list_chat_sessions') }}";
-        const API_HISTORY_GET = "{{ url_for('get_chat_session', session_id='SESSION_ID') }}".replace('SESSION_ID', '{session_id}');
-        const API_HISTORY_SEARCH = "{{ url_for('search_chat_history') }}";
-        const API_CHAT_PAGE = "{{ url_for('chat_interface') }}";
+{% endblock %}
 
-        async function loadHistory() {
-            const listDiv = document.getElementById('history-list');
-            listDiv.innerHTML = '<div class="loading">Loading...</div>';
+{% block scripts %}
+<script>
+    const API_HISTORY = "{{ url_for('list_chat_sessions') }}";
+    const API_HISTORY_GET = "{{ url_for('get_chat_session', session_id='SESSION_ID') }}".replace('SESSION_ID', '{session_id}');
+    const API_HISTORY_SEARCH = "{{ url_for('search_chat_history') }}";
+    const API_CHAT_PAGE = "{{ url_for('chat_interface') }}";
 
-            try {
-                const response = await fetch(API_HISTORY + '?limit=50', {
-                    credentials: 'same-origin'
-                });
-                const data = await response.json();
+    async function loadHistory() {
+        const listDiv = document.getElementById('history-list');
+        listDiv.innerHTML = '<div class="loading">Loading...</div>';
 
-                if (data.sessions && data.sessions.length > 0) {
-                    displayHistorySessions(data.sessions);
-                } else {
-                    listDiv.innerHTML = '<div class="empty-state">No chat history yet</div>';
-                }
-            } catch (error) {
-                listDiv.innerHTML = '<div class="alert alert--error">Error loading history: ' + error.message + '</div>';
-            }
-        }
-
-        function displayHistorySessions(sessions) {
-            const listDiv = document.getElementById('history-list');
-            listDiv.innerHTML = '';
-
-            sessions.forEach(session => {
-                const card = document.createElement('div');
-                card.className = 'history-card';
-                card.onclick = () => resumeSession(session.id);
-
-                const date = new Date(session.created_at);
-                const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-
-                // Use summary or title as preview
-                let preview = '';
-                if (session.summary) {
-                    preview = session.summary.length > 150 ? session.summary.substring(0, 150) + '...' : session.summary;
-                } else if (session.title && session.title !== 'Chat Session') {
-                    preview = session.title;
-                }
-
-                // Build metadata
-                const metaParts = [];
-                if (session.ticket_number) {
-                    metaParts.push(`Ticket #${session.ticket_number}`);
-                }
-                if (session.client_name) {
-                    metaParts.push(session.client_name);
-                }
-                if (session.message_count) {
-                    metaParts.push(`${session.message_count} messages`);
-                }
-
-                card.innerHTML = `
-                    <div class="history-card__header">
-                        <h3 class="history-card__title">${session.title || 'Chat Session'}</h3>
-                        <span class="history-card__date">${dateStr}</span>
-                    </div>
-                    ${preview ? `<div class="history-card__preview">${preview}</div>` : ''}
-                    ${metaParts.length > 0 ? `<div class="history-card__meta">${metaParts.join(' • ')}</div>` : ''}
-                `;
-
-                listDiv.appendChild(card);
+        try {
+            const response = await fetch(API_HISTORY + '?limit=50', {
+                credentials: 'same-origin'
             });
-        }
+            const data = await response.json();
 
-        function resumeSession(dbSessionId) {
-            // Redirect to chat page with session ID parameter
-            window.location.href = API_CHAT_PAGE + '?session=' + dbSessionId;
-        }
-
-        // Search with debounce
-        let searchTimeout;
-        document.getElementById('history-search').addEventListener('input', function(e) {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                const query = e.target.value.trim();
-                if (query) {
-                    searchHistory(query);
-                } else {
-                    loadHistory();
-                }
-            }, 300);
-        });
-
-        async function searchHistory(query) {
-            const listDiv = document.getElementById('history-list');
-            listDiv.innerHTML = '<div class="loading">Searching...</div>';
-
-            try {
-                const response = await fetch(API_HISTORY_SEARCH + `?q=${encodeURIComponent(query)}`, {
-                    credentials: 'same-origin'
-                });
-                const data = await response.json();
-
-                if (data.sessions && data.sessions.length > 0) {
-                    displayHistorySessions(data.sessions);
-                } else {
-                    listDiv.innerHTML = '<div class="empty-state">No results found</div>';
-                }
-            } catch (error) {
-                listDiv.innerHTML = '<div class="alert alert--error">Error searching: ' + error.message + '</div>';
+            if (data.sessions && data.sessions.length > 0) {
+                displayHistorySessions(data.sessions);
+            } else {
+                listDiv.innerHTML = '<div class="empty-state">No chat history yet</div>';
             }
+        } catch (error) {
+            listDiv.innerHTML = '<div class="alert alert--error">Error loading history: ' + error.message + '</div>';
         }
+    }
 
-        // Load history on page load
-        window.addEventListener('DOMContentLoaded', () => {
-            loadHistory();
-            lucide.createIcons();
+    function displayHistorySessions(sessions) {
+        const listDiv = document.getElementById('history-list');
+        listDiv.innerHTML = '';
+
+        sessions.forEach(session => {
+            const card = document.createElement('div');
+            card.className = 'history-card';
+            card.onclick = () => resumeSession(session.id);
+
+            const date = new Date(session.created_at);
+            const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+
+            // Use summary or title as preview
+            let preview = '';
+            if (session.summary) {
+                preview = session.summary.length > 150 ? session.summary.substring(0, 150) + '...' : session.summary;
+            } else if (session.title && session.title !== 'Chat Session') {
+                preview = session.title;
+            }
+
+            // Build metadata
+            const metaParts = [];
+            if (session.ticket_number) {
+                metaParts.push(`Ticket #${session.ticket_number}`);
+            }
+            if (session.client_name) {
+                metaParts.push(session.client_name);
+            }
+            if (session.message_count) {
+                metaParts.push(`${session.message_count} messages`);
+            }
+
+            card.innerHTML = `
+                <div class="history-card__header">
+                    <h3 class="history-card__title">${session.title || 'Chat Session'}</h3>
+                    <span class="history-card__date">${dateStr}</span>
+                </div>
+                ${preview ? `<div class="history-card__preview">${preview}</div>` : ''}
+                ${metaParts.length > 0 ? `<div class="history-card__meta">${metaParts.join(' • ')}</div>` : ''}
+            `;
+
+            listDiv.appendChild(card);
         });
-    </script>
+    }
 
-    <div class="version-footer">
-        <span class="version-footer__text">{{ app_service_name }} v{{ app_version }}</span>
-    </div>
-</body>
-</html>
+    function resumeSession(dbSessionId) {
+        // Redirect to chat page with session ID parameter
+        window.location.href = API_CHAT_PAGE + '?session=' + dbSessionId;
+    }
+
+    // Search with debounce
+    let searchTimeout;
+    document.getElementById('history-search').addEventListener('input', function(e) {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            const query = e.target.value.trim();
+            if (query) {
+                searchHistory(query);
+            } else {
+                loadHistory();
+            }
+        }, 300);
+    });
+
+    async function searchHistory(query) {
+        const listDiv = document.getElementById('history-list');
+        listDiv.innerHTML = '<div class="loading">Searching...</div>';
+
+        try {
+            const response = await fetch(API_HISTORY_SEARCH + `?q=${encodeURIComponent(query)}`, {
+                credentials: 'same-origin'
+            });
+            const data = await response.json();
+
+            if (data.sessions && data.sessions.length > 0) {
+                displayHistorySessions(data.sessions);
+            } else {
+                listDiv.innerHTML = '<div class="empty-state">No results found</div>';
+            }
+        } catch (error) {
+            listDiv.innerHTML = '<div class="alert alert--error">Error searching: ' + error.message + '</div>';
+        }
+    }
+
+    // Load history on page load
+    window.addEventListener('DOMContentLoaded', () => {
+        loadHistory();
+        lucide.createIcons();
+    });
+</script>
+{% endblock %}

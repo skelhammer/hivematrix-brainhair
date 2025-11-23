@@ -1,12 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Brainhair - AI Assistant</title>
-    <script src="https://unpkg.com/lucide@latest"></script>
-</head>
-<body class="u-no-scroll">
+{% extends "layout.html" %}
+
+{% block title %}Brainhair - AI Assistant{% endblock %}
+
+{% block content %}
     <div class="chat">
         <div class="chat__header">
             <h1 class="chat__title">Brainhair</h1>
@@ -95,8 +91,10 @@
             </div>
         </div>
     </div>
+{% endblock %}
 
-    <script>
+{% block scripts %}
+<script>
         // API endpoints
         const API_CHAT = "{{ url_for('chat_message') }}";
         const API_CHAT_POLL = "{{ url_for('poll_response', response_id='RESPONSE_ID') }}".replace('RESPONSE_ID', '{response_id}');
@@ -670,9 +668,5 @@
             lucide.createIcons();
             loadSessionFromUrl();
         });
-    </script>
-    <div class="version-footer">
-        <span class="version-footer__text">{{ app_service_name }} v{{ app_version }}</span>
-    </div>
-</body>
-</html>
+</script>
+{% endblock %}
