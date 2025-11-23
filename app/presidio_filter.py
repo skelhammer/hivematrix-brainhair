@@ -35,7 +35,19 @@ class PresidioFilter:
         self.anonymizer.add_anonymizer(FirstNameLastInitialOperator)
 
         # Define entity types to detect
-        # PHI entities
+
+        # CRITICAL: High-security entities (financial/government IDs only)
+        # Use this for MSP internal tools where operational data is needed
+        self.critical_entities = [
+            "US_SSN",              # Social Security Numbers
+            "CREDIT_CARD",         # Credit card numbers
+            "IBAN_CODE",           # Bank account numbers
+            "US_PASSPORT",         # Passport numbers
+            "US_DRIVER_LICENSE",   # Driver's license numbers
+        ]
+
+        # PHI entities (healthcare context - overly aggressive for MSP)
+        # Only use if supporting healthcare clients with actual PHI in tickets
         self.phi_entities = [
             "PERSON",
             "EMAIL_ADDRESS",
@@ -62,19 +74,22 @@ class PresidioFilter:
             "IP_ADDRESS"
         ]
 
+        # Default to critical_entities for MSP use (minimal redaction)
+        self.default_entities = self.critical_entities
+
     def analyze_text(self, text: str, entity_types: Optional[List[str]] = None) -> List:
         """
         Analyze text to find sensitive entities.
 
         Args:
             text: The text to analyze
-            entity_types: List of entity types to detect (defaults to PHI entities)
+            entity_types: List of entity types to detect (defaults to critical entities)
 
         Returns:
             List of detected entities with their locations and scores
         """
         if entity_types is None:
-            entity_types = self.phi_entities
+            entity_types = self.default_entities
 
         results = self.analyzer.analyze(
             text=text,
@@ -91,14 +106,14 @@ class PresidioFilter:
 
         Args:
             text: The text to anonymize
-            entity_types: List of entity types to anonymize (defaults to PHI entities)
+            entity_types: List of entity types to anonymize (defaults to critical entities)
             anonymization_type: Type of anonymization ("replace", "mask", "redact", "hash")
 
         Returns:
             Anonymized text with sensitive information replaced
         """
         if entity_types is None:
-            entity_types = self.phi_entities
+            entity_types = self.default_entities
 
         # Analyze the text first
         results = self.analyze_text(text, entity_types)
@@ -145,14 +160,14 @@ class PresidioFilter:
         Args:
             data: Dictionary to filter
             fields_to_filter: List of field names to filter (if None, filters all string fields)
-            entity_types: List of entity types to detect (defaults to PHI entities)
+            entity_types: List of entity types to detect (defaults to critical entities)
             anonymization_type: Type of anonymization
 
         Returns:
             Filtered dictionary with sensitive information anonymized
         """
         if entity_types is None:
-            entity_types = self.phi_entities
+            entity_types = self.default_entities
 
         filtered_data = data.copy()
 
@@ -186,14 +201,14 @@ class PresidioFilter:
         Args:
             data: List to filter
             fields_to_filter: List of field names to filter in dict items
-            entity_types: List of entity types to detect (defaults to PHI entities)
+            entity_types: List of entity types to detect (defaults to critical entities)
             anonymization_type: Type of anonymization
 
         Returns:
             Filtered list with sensitive information anonymized
         """
         if entity_types is None:
-            entity_types = self.phi_entities
+            entity_types = self.default_entities
 
         filtered_list = []
         for item in data:
@@ -210,19 +225,22 @@ class PresidioFilter:
         """
         Filter PHI (Protected Health Information) from data.
 
+        NOTE: Uses critical_entities (minimal redaction) by default.
+        For full PHI compliance, use filter_dict/filter_list with self.phi_entities.
+
         Args:
             data: Data to filter (dict, list, or str)
             fields_to_filter: List of field names to filter (for dict/list of dicts)
 
         Returns:
-            Filtered data with PHI anonymized
+            Filtered data with critical entities anonymized
         """
         if isinstance(data, dict):
-            return self.filter_dict(data, fields_to_filter, self.phi_entities)
+            return self.filter_dict(data, fields_to_filter, self.default_entities)
         elif isinstance(data, list):
-            return self.filter_list(data, fields_to_filter, self.phi_entities)
+            return self.filter_list(data, fields_to_filter, self.default_entities)
         elif isinstance(data, str):
-            return self.anonymize_text(data, self.phi_entities)
+            return self.anonymize_text(data, self.default_entities)
         else:
             return data
 
@@ -260,17 +278,20 @@ def get_presidio_filter() -> PresidioFilter:
 
 def filter_data(data: Any, fields_to_filter: Optional[List[str]] = None) -> Any:
     """
-    Convenience function to filter PHI data.
+    Convenience function to filter sensitive data (minimal redaction).
 
-    This is a simple wrapper around get_presidio_filter().filter_phi()
-    for easy importing and use.
+    Uses critical_entities (SSN, credit cards, passports, driver's licenses, bank accounts)
+    by default. Does NOT redact operational business data (names, emails, phones, addresses).
+
+    For full PHI compliance (healthcare context), use:
+        filter_instance.filter_dict(data, fields_to_filter, filter_instance.phi_entities)
 
     Args:
         data: Data to filter (dict, list, or str)
         fields_to_filter: List of field names to filter (for dict/list of dicts)
 
     Returns:
-        Filtered data with PHI anonymized
+        Filtered data with critical entities anonymized
     """
     filter_instance = get_presidio_filter()
     return filter_instance.filter_phi(data, fields_to_filter)
