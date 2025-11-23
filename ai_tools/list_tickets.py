@@ -10,7 +10,7 @@ import sys
 from brainhair_auth import get_auth
 
 
-def list_tickets(source="codex", company_id=None, status=None, filter_type="phi", limit=50):
+def list_tickets(source="codex", company_id=None, status=None, limit=50):
     """
     List tickets with PHI/CJIS filtering.
 
@@ -26,7 +26,6 @@ def list_tickets(source="codex", company_id=None, status=None, filter_type="phi"
     """
     auth = get_auth()
 
-    params = {"filter": filter_type}
 
     if source == "psa":
         params["limit"] = str(limit)
@@ -49,7 +48,7 @@ def list_tickets(source="codex", company_id=None, status=None, filter_type="phi"
         return []
 
 
-def get_ticket(ticket_id, source="psa", filter_type="phi"):
+def get_ticket(ticket_id, source="psa"):
     """
     Get a specific ticket.
 
@@ -86,14 +85,12 @@ def main():
         sys.exit(1)
 
     command = sys.argv[1]
-    filter_type = "phi"
     source = "psa"
 
     if command == "list":
         if len(sys.argv) > 2:
             source = sys.argv[2]
         if len(sys.argv) > 3:
-            filter_type = sys.argv[3]
 
         tickets = list_tickets(source=source, filter_type=filter_type)
 
@@ -123,9 +120,8 @@ def main():
         if len(sys.argv) > 3:
             source = sys.argv[3]
         if len(sys.argv) > 4:
-            filter_type = sys.argv[4]
 
-        ticket = get_ticket(ticket_id, source, filter_type)
+        ticket = get_ticket(ticket_id, source)
 
         print(f"\n=== Ticket {ticket_id} from {source} (Filter: {filter_type}) ===\n")
         print(json.dumps(ticket, indent=2))

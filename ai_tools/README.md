@@ -1,6 +1,6 @@
 # Brain Hair AI Tools
 
-This directory contains Python scripts that Claude can use to interact with the HiveMatrix system through the Brain Hair API gateway. All data is automatically filtered for PHI/CJIS compliance using Presidio.
+This directory contains Python scripts that Claude can use to interact with the HiveMatrix system through the Brain Hair API gateway. All data is automatically filtered based on each company's compliance level (Standard/CJIS/HIPAA) using Presidio.
 
 ## Authentication
 
@@ -112,7 +112,7 @@ response = auth.get("/api/health")
 print(response.json())
 
 # Search knowledge
-response = auth.get("/api/knowledge/search", params={"q": "VPN", "filter": "phi"})
+response = auth.get("/api/knowledge/search", params={"q": "VPN"})
 results = response.json()
 
 # List companies
@@ -132,22 +132,24 @@ Optional environment variables:
 All available Brain Hair endpoints:
 
 ### Knowledge
-- `GET /api/knowledge/search?q=<query>&filter=<phi|cjis>`
-- `GET /api/knowledge/browse?path=<path>&filter=<phi|cjis>`
-- `GET /api/knowledge/node/<id>?filter=<phi|cjis>`
+- `GET /api/knowledge/search?q=<query>`
+- `GET /api/knowledge/browse?path=<path>`
+- `GET /api/knowledge/node/<id>`
 
 ### Codex
-- `GET /api/codex/companies?filter=<phi|cjis>`
-- `GET /api/codex/company/<id>?filter=<phi|cjis>`
-- `GET /api/codex/tickets?company_id=<id>&status=<status>&filter=<phi|cjis>`
+- `GET /api/codex/companies`
+- `GET /api/codex/company/<id>`
+- `GET /api/codex/tickets?company_id=<id>&status=<status>`
 
 ### PSA
-- `GET /api/psa/tickets?limit=<n>&filter=<phi|cjis>`
-- `GET /api/psa/ticket/<id>?filter=<phi|cjis>`
+- `GET /api/psa/tickets?limit=<n>`
+- `GET /api/psa/ticket/<id>`
 
 ### RMM (Vendor-Agnostic)
-- `GET /api/rmm/devices?company_id=<id>&filter=<phi|cjis>`
-- `GET /api/rmm/device/<id>?filter=<phi|cjis>`
+- `GET /api/rmm/devices?company_id=<id>`
+- `GET /api/rmm/device/<id>`
+
+**Note**: All endpoints automatically apply compliance-based filtering. Each company's data is filtered according to their configured compliance level (Standard/CJIS/HIPAA) in Codex. No filter parameter needed.
 
 ### Utility
 - `GET /api/health` - Health check

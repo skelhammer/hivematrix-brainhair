@@ -17,29 +17,61 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from health_check import HealthChecker
 from .helm_logger import get_helm_logger
-from .presidio_filter import get_presidio_filter
+from .presidio_filter import get_presidio_filter, filter_by_compliance_level
 from typing import Optional, Dict, Any
 import json
 
 
-def apply_filter(data: Any, filter_type: Optional[str] = None) -> Any:
+def apply_company_filtering(data: Any) -> Any:
     """
-    Apply Presidio filtering to data based on filter type.
+    Apply Presidio filtering to data based on company compliance levels.
+
+    This function intelligently applies filtering based on the compliance_level
+    field that Codex includes in API responses:
+    - standard: Minimal filtering (SSN, credit cards, passports only)
+    - cjis: Criminal Justice filtering (names, addresses, phones, IPs redacted)
+    - hipaa: Healthcare filtering (all PII/PHI redacted)
 
     Args:
-        data: Data to filter
-        filter_type: Type of filter to apply ("phi", "cjis", or None for PHI default)
+        data: Data from Codex API (dict with compliance_level, or list of dicts)
 
     Returns:
-        Filtered data
-    """
-    presidio = get_presidio_filter()
+        Filtered data with appropriate entities anonymized per company
 
-    if filter_type == "cjis":
-        return presidio.filter_cjis(data)
+    Examples:
+        # Single company
+        company = {'name': 'Acme Corp', 'compliance_level': 'standard', ...}
+        filtered = apply_company_filtering(company)  # Minimal filtering
+
+        # List of tickets (each has company_compliance_level)
+        tickets = [
+            {'id': 1, 'company_compliance_level': 'hipaa', ...},
+            {'id': 2, 'company_compliance_level': 'standard', ...}
+        ]
+        filtered = apply_company_filtering(tickets)  # Per-ticket filtering
+    """
+    if isinstance(data, dict):
+        # Single item - check for compliance_level fields
+        compliance_level = data.get('compliance_level') or \
+                          data.get('company_compliance_level', 'standard')
+        return filter_by_compliance_level(data, compliance_level)
+
+    elif isinstance(data, list):
+        # List of items - apply per-item filtering
+        filtered_list = []
+        for item in data:
+            if isinstance(item, dict):
+                compliance_level = item.get('compliance_level') or \
+                                  item.get('company_compliance_level', 'standard')
+                filtered_item = filter_by_compliance_level(item, compliance_level)
+                filtered_list.append(filtered_item)
+            else:
+                filtered_list.append(item)
+        return filtered_list
+
     else:
-        # Default to PHI filtering
-        return presidio.filter_phi(data)
+        # Primitive type or unknown - return as-is
+        return data
 
 
 @app.route('/')
@@ -95,14 +127,12 @@ def knowledge_search():
     """
     Search KnowledgeTree and return filtered results.
 
-    Query params:
+    Compliance-based filtering is applied automatically per company.
         q: Search query
-        filter: Filter type ("phi", "cjis", or none for PHI)
     """
     logger = get_helm_logger()
 
     query = request.args.get('q', '')
-    filter_type = request.args.get('filter', 'phi')
 
     if not query:
         return jsonify({'error': 'Query parameter "q" is required'}), 400
@@ -115,7 +145,7 @@ def knowledge_search():
             data = response.json()
 
             # Apply Presidio filtering
-            filtered_data = apply_filter(data, filter_type)
+            filtered_data = apply_company_filtering(data)
 
             # Handle both dict and list responses
             if isinstance(data, dict):
@@ -128,7 +158,6 @@ def knowledge_search():
 
             return jsonify({
                 'query': query,
-                'filter_applied': filter_type,
                 'data': filtered_data
             })
         else:
@@ -146,14 +175,12 @@ def knowledge_browse():
     """
     Browse KnowledgeTree nodes and return filtered results.
 
-    Query params:
+    Compliance-based filtering is applied automatically per company.
         path: Path to browse (optional, defaults to root)
-        filter: Filter type ("phi", "cjis", or none for PHI)
     """
     logger = get_helm_logger()
 
     path = request.args.get('path', '')
-    filter_type = request.args.get('filter', 'phi')
 
     try:
         # Call KnowledgeTree service API endpoint
@@ -164,13 +191,12 @@ def knowledge_browse():
             data = response.json()
 
             # Apply Presidio filtering
-            filtered_data = apply_filter(data, filter_type)
+            filtered_data = apply_company_filtering(data)
 
             logger.info(f"Knowledge browse completed: path='{path}'")
 
             return jsonify({
                 'path': path,
-                'filter_applied': filter_type,
                 'data': filtered_data
             })
         else:
@@ -188,12 +214,10 @@ def knowledge_node(node_id: int):
     """
     Get details of a specific KnowledgeTree node with filtering.
 
-    Query params:
-        filter: Filter type ("phi", "cjis", or none for PHI)
+    Compliance-based filtering is applied automatically per company.
     """
     logger = get_helm_logger()
 
-    filter_type = request.args.get('filter', 'phi')
 
     try:
         # Call KnowledgeTree service
@@ -203,13 +227,12 @@ def knowledge_node(node_id: int):
             data = response.json()
 
             # Apply Presidio filtering
-            filtered_data = apply_filter(data, filter_type)
+            filtered_data = apply_company_filtering(data)
 
             logger.info(f"Knowledge node retrieved: node_id={node_id}")
 
             return jsonify({
                 'node_id': node_id,
-                'filter_applied': filter_type,
                 'data': filtered_data
             })
         else:
@@ -229,12 +252,10 @@ def codex_companies():
     """
     Get list of companies from Codex with filtering.
 
-    Query params:
-        filter: Filter type ("phi", "cjis", or none for PHI)
+    Compliance-based filtering is applied automatically per company.
     """
     logger = get_helm_logger()
 
-    filter_type = request.args.get('filter', 'phi')
 
     try:
         # Call Codex service
@@ -244,12 +265,11 @@ def codex_companies():
             data = response.json()
 
             # Apply Presidio filtering
-            filtered_data = apply_filter(data, filter_type)
+            filtered_data = apply_company_filtering(data)
 
             logger.info(f"Codex companies retrieved: count={len(data) if isinstance(data, list) else 'N/A'}")
 
             return jsonify({
-                'filter_applied': filter_type,
                 'data': filtered_data
             })
         else:
@@ -267,12 +287,10 @@ def codex_company(company_id: int):
     """
     Get details of a specific company from Codex with filtering.
 
-    Query params:
-        filter: Filter type ("phi", "cjis", or none for PHI)
+    Compliance-based filtering is applied automatically per company.
     """
     logger = get_helm_logger()
 
-    filter_type = request.args.get('filter', 'phi')
 
     try:
         # Call Codex service
@@ -282,13 +300,12 @@ def codex_company(company_id: int):
             data = response.json()
 
             # Apply Presidio filtering
-            filtered_data = apply_filter(data, filter_type)
+            filtered_data = apply_company_filtering(data)
 
             logger.info(f"Codex company retrieved: company_id={company_id}")
 
             return jsonify({
                 'company_id': company_id,
-                'filter_applied': filter_type,
                 'data': filtered_data
             })
         else:
@@ -306,16 +323,14 @@ def codex_tickets():
     """
     Get tickets from Codex with filtering.
 
-    Query params:
+    Compliance-based filtering is applied automatically per company.
         company_id: Filter by company ID (optional)
         status: Filter by status (optional)
-        filter: Filter type ("phi", "cjis", or none for PHI)
     """
     logger = get_helm_logger()
 
     company_id = request.args.get('company_id')
     status = request.args.get('status')
-    filter_type = request.args.get('filter', 'phi')
 
     try:
         # Build query parameters
@@ -336,12 +351,11 @@ def codex_tickets():
             data = response.json()
 
             # Apply Presidio filtering
-            filtered_data = apply_filter(data, filter_type)
+            filtered_data = apply_company_filtering(data)
 
             logger.info(f"Codex tickets retrieved: count={len(data) if isinstance(data, list) else 'N/A'}")
 
             return jsonify({
-                'filter_applied': filter_type,
                 'data': filtered_data
             })
         else:
@@ -359,14 +373,12 @@ def codex_contacts():
     """
     Get contacts from Codex with filtering.
 
-    Query params:
+    Compliance-based filtering is applied automatically per company.
         company_id: Filter by company ID (optional)
-        filter: Filter type ("phi", "cjis", or none for PHI)
     """
     logger = get_helm_logger()
 
     company_id = request.args.get('company_id')
-    filter_type = request.args.get('filter', 'phi')
 
     try:
         # Build endpoint
@@ -381,12 +393,11 @@ def codex_contacts():
             data = response.json()
 
             # Apply Presidio filtering
-            filtered_data = apply_filter(data, filter_type)
+            filtered_data = apply_company_filtering(data)
 
             logger.info(f"Codex contacts retrieved: count={len(filtered_data) if isinstance(filtered_data, list) else 'N/A'}")
 
             return jsonify({
-                'filter_applied': filter_type,
                 'data': filtered_data
             })
         else:
@@ -404,12 +415,10 @@ def codex_contact(contact_id: int):
     """
     Get a specific contact from Codex with filtering.
 
-    Query params:
-        filter: Filter type ("phi", "cjis", or none for PHI)
+    Compliance-based filtering is applied automatically per company.
     """
     logger = get_helm_logger()
 
-    filter_type = request.args.get('filter', 'phi')
 
     try:
         # Call Codex service
@@ -419,13 +428,12 @@ def codex_contact(contact_id: int):
             data = response.json()
 
             # Apply Presidio filtering
-            filtered_data = apply_filter(data, filter_type)
+            filtered_data = apply_company_filtering(data)
 
             logger.info(f"Codex contact retrieved: contact_id={contact_id}")
 
             return jsonify({
                 'contact_id': contact_id,
-                'filter_applied': filter_type,
                 'data': filtered_data
             })
         else:
@@ -443,14 +451,12 @@ def codex_assets():
     """
     Get assets from Codex with filtering.
 
-    Query params:
+    Compliance-based filtering is applied automatically per company.
         company_id: Filter by company ID (optional)
-        filter: Filter type ("phi", "cjis", or none for PHI)
     """
     logger = get_helm_logger()
 
     company_id = request.args.get('company_id')
-    filter_type = request.args.get('filter', 'phi')
 
     try:
         # Build endpoint
@@ -465,12 +471,11 @@ def codex_assets():
             data = response.json()
 
             # Apply Presidio filtering
-            filtered_data = apply_filter(data, filter_type)
+            filtered_data = apply_company_filtering(data)
 
             logger.info(f"Codex assets retrieved: count={len(filtered_data) if isinstance(filtered_data, list) else 'N/A'}")
 
             return jsonify({
-                'filter_applied': filter_type,
                 'data': filtered_data
             })
         else:
@@ -488,12 +493,10 @@ def codex_asset(asset_id: int):
     """
     Get a specific asset from Codex with filtering.
 
-    Query params:
-        filter: Filter type ("phi", "cjis", or none for PHI)
+    Compliance-based filtering is applied automatically per company.
     """
     logger = get_helm_logger()
 
-    filter_type = request.args.get('filter', 'phi')
 
     try:
         # Call Codex service
@@ -503,13 +506,12 @@ def codex_asset(asset_id: int):
             data = response.json()
 
             # Apply Presidio filtering
-            filtered_data = apply_filter(data, filter_type)
+            filtered_data = apply_company_filtering(data)
 
             logger.info(f"Codex asset retrieved: asset_id={asset_id}")
 
             return jsonify({
                 'asset_id': asset_id,
-                'filter_applied': filter_type,
                 'data': filtered_data
             })
         else:
@@ -529,12 +531,10 @@ def codex_ticket(ticket_id: int):
     """
     Get a specific ticket from Codex with filtering.
 
-    Query params:
-        filter: Filter type ("phi", "cjis", or none for PHI)
+    Compliance-based filtering is applied automatically per company.
     """
     logger = get_helm_logger()
 
-    filter_type = request.args.get('filter', 'phi')
 
     try:
         # Call Codex service
@@ -544,14 +544,13 @@ def codex_ticket(ticket_id: int):
             data = response.json()
 
             # Apply Presidio filtering
-            filtered_data = apply_filter(data, filter_type)
+            filtered_data = apply_company_filtering(data)
 
             logger.info(f"Codex ticket retrieved: ticket_id={ticket_id}")
 
             return jsonify({
                 'source': 'codex',
                 'ticket_id': ticket_id,
-                'filter_applied': filter_type,
                 'data': filtered_data
             })
         else:
@@ -571,14 +570,12 @@ def beacon_tickets():
     """
     Get tickets from Beacon dashboard with filtering.
 
-    Query params:
-        filter: Filter type ("phi", "cjis", or none for PHI)
+    Compliance-based filtering is applied automatically per company.
         status: Optional status filter
         limit: Number of results to return (optional)
     """
     logger = get_helm_logger()
 
-    filter_type = request.args.get('filter', 'phi')
     status = request.args.get('status')
     limit = request.args.get('limit', '50')
 
@@ -595,13 +592,12 @@ def beacon_tickets():
             data = response.json()
 
             # Apply Presidio filtering
-            filtered_data = apply_filter(data, filter_type)
+            filtered_data = apply_company_filtering(data)
 
             logger.info(f"Beacon tickets retrieved: count={len(filtered_data) if isinstance(filtered_data, list) else 'N/A'}")
 
             return jsonify({
                 'source': 'beacon',
-                'filter_applied': filter_type,
                 'data': filtered_data
             })
         else:
@@ -619,12 +615,10 @@ def beacon_ticket(ticket_id: int):
     """
     Get a specific ticket from Beacon with filtering.
 
-    Query params:
-        filter: Filter type ("phi", "cjis", or none for PHI)
+    Compliance-based filtering is applied automatically per company.
     """
     logger = get_helm_logger()
 
-    filter_type = request.args.get('filter', 'phi')
 
     try:
         # Call Beacon service
@@ -634,14 +628,13 @@ def beacon_ticket(ticket_id: int):
             data = response.json()
 
             # Apply Presidio filtering
-            filtered_data = apply_filter(data, filter_type)
+            filtered_data = apply_company_filtering(data)
 
             logger.info(f"Beacon ticket retrieved: ticket_id={ticket_id}")
 
             return jsonify({
                 'source': 'beacon',
                 'ticket_id': ticket_id,
-                'filter_applied': filter_type,
                 'data': filtered_data
             })
         else:
@@ -659,12 +652,10 @@ def beacon_dashboard():
     """
     Get dashboard data from Beacon with filtering.
 
-    Query params:
-        filter: Filter type ("phi", "cjis", or none for PHI)
+    Compliance-based filtering is applied automatically per company.
     """
     logger = get_helm_logger()
 
-    filter_type = request.args.get('filter', 'phi')
 
     try:
         # Call Beacon service
@@ -674,13 +665,12 @@ def beacon_dashboard():
             data = response.json()
 
             # Apply Presidio filtering
-            filtered_data = apply_filter(data, filter_type)
+            filtered_data = apply_company_filtering(data)
 
             logger.info("Beacon dashboard retrieved")
 
             return jsonify({
                 'source': 'beacon',
-                'filter_applied': filter_type,
                 'data': filtered_data
             })
         else:
@@ -700,15 +690,13 @@ def archive_search():
     """
     Search archived data with filtering.
 
-    Query params:
+    Compliance-based filtering is applied automatically per company.
         q: Search query
-        filter: Filter type ("phi", "cjis", or none for PHI)
         limit: Number of results to return (optional)
     """
     logger = get_helm_logger()
 
     query = request.args.get('q', '')
-    filter_type = request.args.get('filter', 'phi')
     limit = request.args.get('limit', '50')
 
     try:
@@ -719,14 +707,13 @@ def archive_search():
             data = response.json()
 
             # Apply Presidio filtering
-            filtered_data = apply_filter(data, filter_type)
+            filtered_data = apply_company_filtering(data)
 
             logger.info(f"Archive search completed: query='{query}'")
 
             return jsonify({
                 'source': 'archive',
                 'query': query,
-                'filter_applied': filter_type,
                 'data': filtered_data
             })
         else:
@@ -744,13 +731,11 @@ def archive_items():
     """
     List archived items with filtering.
 
-    Query params:
-        filter: Filter type ("phi", "cjis", or none for PHI)
+    Compliance-based filtering is applied automatically per company.
         limit: Number of results to return (optional)
     """
     logger = get_helm_logger()
 
-    filter_type = request.args.get('filter', 'phi')
     limit = request.args.get('limit', '50')
 
     try:
@@ -761,13 +746,12 @@ def archive_items():
             data = response.json()
 
             # Apply Presidio filtering
-            filtered_data = apply_filter(data, filter_type)
+            filtered_data = apply_company_filtering(data)
 
             logger.info(f"Archive items retrieved: count={len(filtered_data) if isinstance(filtered_data, list) else 'N/A'}")
 
             return jsonify({
                 'source': 'archive',
-                'filter_applied': filter_type,
                 'data': filtered_data
             })
         else:
@@ -785,12 +769,10 @@ def archive_item(item_id: int):
     """
     Get a specific archived item with filtering.
 
-    Query params:
-        filter: Filter type ("phi", "cjis", or none for PHI)
+    Compliance-based filtering is applied automatically per company.
     """
     logger = get_helm_logger()
 
-    filter_type = request.args.get('filter', 'phi')
 
     try:
         # Call Archive service
@@ -800,14 +782,13 @@ def archive_item(item_id: int):
             data = response.json()
 
             # Apply Presidio filtering
-            filtered_data = apply_filter(data, filter_type)
+            filtered_data = apply_company_filtering(data)
 
             logger.info(f"Archive item retrieved: item_id={item_id}")
 
             return jsonify({
                 'source': 'archive',
                 'item_id': item_id,
-                'filter_applied': filter_type,
                 'data': filtered_data
             })
         else:
@@ -827,10 +808,9 @@ def ledger_billing(account_number: str):
     """
     Get billing data for a specific company from Ledger.
 
-    Query params:
+    Compliance-based filtering is applied automatically per company.
         year: Billing year (optional)
         month: Billing month (optional)
-        filter: Filter type ("phi", "cjis", or none for PHI)
     """
     logger = get_helm_logger()
 
@@ -839,7 +819,6 @@ def ledger_billing(account_number: str):
 
     year = request.args.get('year', type=int)
     month = request.args.get('month', type=int)
-    filter_type = request.args.get('filter', 'phi')
 
     try:
         data = ledger.get_billing_for_client(account_number, year, month)
@@ -849,12 +828,11 @@ def ledger_billing(account_number: str):
             return jsonify(data), 500
 
         # Apply filtering
-        filtered_data = apply_filter(data, filter_type)
+        filtered_data = apply_company_filtering(data)
 
         logger.info(f"Retrieved billing data for {account_number}")
         return jsonify({
             'account_number': account_number,
-            'filter_applied': filter_type,
             'data': filtered_data
         })
 
@@ -869,10 +847,9 @@ def ledger_dashboard():
     """
     Get billing dashboard for all companies.
 
-    Query params:
+    Compliance-based filtering is applied automatically per company.
         year: Billing year (optional)
         month: Billing month (optional)
-        filter: Filter type ("phi", "cjis", or none for PHI)
     """
     logger = get_helm_logger()
 
@@ -881,7 +858,6 @@ def ledger_dashboard():
 
     year = request.args.get('year', type=int)
     month = request.args.get('month', type=int)
-    filter_type = request.args.get('filter', 'phi')
 
     try:
         data = ledger.get_billing_dashboard(year, month)
@@ -890,11 +866,10 @@ def ledger_dashboard():
             return jsonify(data), 500
 
         # Apply filtering
-        filtered_data = apply_filter(data, filter_type)
+        filtered_data = apply_company_filtering(data)
 
         logger.info("Retrieved billing dashboard")
         return jsonify({
-            'filter_applied': filter_type,
             'data': filtered_data
         })
 
@@ -1213,7 +1188,7 @@ def get_invoice_summary(account_number: str):
     """
     Get invoice summary for a specific period.
 
-    Query params:
+    Compliance-based filtering is applied automatically per company.
         year: Invoice year (required)
         month: Invoice month (required)
     """

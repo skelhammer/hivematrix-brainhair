@@ -10,20 +10,22 @@ import sys
 from brainhair_auth import get_auth
 
 
-def list_devices(company_id=None, filter_type="phi"):
+def list_devices(company_id=None):
     """
-    List all devices with PHI/CJIS filtering.
+    List all devices with automatic compliance-based filtering.
+
+    Filtering is applied automatically based on each company's compliance_level
+    (Standard, CJIS, or HIPAA) as configured in Codex.
 
     Args:
         company_id: Optional company ID to filter by
-        filter_type: Type of filter to apply ("phi" or "cjis")
 
     Returns:
-        List of devices
+        List of devices with appropriate compliance filtering applied
     """
     auth = get_auth()
 
-    params = {"filter": filter_type}
+    params = {}
     if company_id:
         params["company_id"] = company_id
 
@@ -41,20 +43,14 @@ def list_devices(company_id=None, filter_type="phi"):
 def main():
     """Main entry point."""
     company_id = None
-    filter_type = "phi"
 
     if len(sys.argv) > 1:
-        if sys.argv[1] in ["phi", "cjis"]:
-            filter_type = sys.argv[1]
-        else:
-            company_id = sys.argv[1]
+        company_id = sys.argv[1]
 
-    if len(sys.argv) > 2:
-        filter_type = sys.argv[2]
+    devices = list_devices(company_id)
 
-    devices = list_devices(company_id, filter_type)
-
-    print(f"\n=== Devices (Filter: {filter_type}) ===\n")
+    print(f"\n=== Devices ===\n")
+    print("(Compliance filtering applied automatically per company)\n")
 
     if isinstance(devices, list):
         for device in devices:

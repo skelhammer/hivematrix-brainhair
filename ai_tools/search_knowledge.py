@@ -10,7 +10,7 @@ import sys
 from brainhair_auth import get_auth
 
 
-def search_knowledge(query, filter_type="phi"):
+def search_knowledge(query):
     """
     Search KnowledgeTree with PHI/CJIS filtering.
 
@@ -39,7 +39,7 @@ def search_knowledge(query, filter_type="phi"):
         return {}
 
 
-def browse_knowledge(path="", filter_type="phi"):
+def browse_knowledge(path=""):
     """
     Browse KnowledgeTree nodes.
 
@@ -52,7 +52,6 @@ def browse_knowledge(path="", filter_type="phi"):
     """
     auth = get_auth()
 
-    params = {"filter": filter_type}
     if path:
         params["path"] = path
 
@@ -76,7 +75,6 @@ def main():
         sys.exit(1)
 
     command = sys.argv[1]
-    filter_type = "phi"
 
     if command == "search":
         if len(sys.argv) < 3:
@@ -85,9 +83,8 @@ def main():
 
         query = sys.argv[2]
         if len(sys.argv) > 3:
-            filter_type = sys.argv[3]
 
-        results = search_knowledge(query, filter_type)
+        results = search_knowledge(query)
 
         print(f"\n=== Search Results for '{query}' (Filter: {filter_type}) ===\n")
         print(json.dumps(results, indent=2))
@@ -95,9 +92,8 @@ def main():
     elif command == "browse":
         path = sys.argv[2] if len(sys.argv) > 2 else ""
         if len(sys.argv) > 3:
-            filter_type = sys.argv[3]
 
-        results = browse_knowledge(path, filter_type)
+        results = browse_knowledge(path)
 
         print(f"\n=== Browse '{path or '/'}' (Filter: {filter_type}) ===\n")
         print(json.dumps(results, indent=2))

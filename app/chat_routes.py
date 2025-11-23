@@ -32,22 +32,8 @@ pending_approvals = {}
 session_manager = get_session_manager()
 
 
-def apply_filter(data, filter_type='phi'):
-    """
-    Apply Presidio filtering to data.
-
-    Args:
-        data: Data to filter
-        filter_type: Type of filter ("phi" or "cjis")
-
-    Returns:
-        Filtered data
-    """
-    presidio = get_presidio_filter()
-    if filter_type == 'cjis':
-        return presidio.filter_cjis(data)
-    else:
-        return presidio.filter_phi(data)
+# Import the new company-based filtering function
+from .routes import apply_company_filtering
 
 
 @app.route('/chat')
@@ -308,8 +294,8 @@ def build_context(ticket: Optional[str], client: Optional[str], user: str) -> Di
             response = call_service('codex', f'/api/ticket/{ticket}')
             if response.status_code == 200:
                 ticket_data = response.json()
-                # Apply PHI filtering inline
-                filtered_ticket = apply_filter(ticket_data, 'phi')
+                # Apply company-based compliance filtering
+                filtered_ticket = apply_company_filtering(ticket_data)
                 context['ticket_details'] = {
                     'id': filtered_ticket.get('id'),
                     'title': filtered_ticket.get('title') or filtered_ticket.get('subject'),
@@ -333,8 +319,8 @@ def build_context(ticket: Optional[str], client: Optional[str], user: str) -> Di
             response = call_service('codex', '/api/companies')
             if response.status_code == 200:
                 companies_data = response.json()
-                # Apply PHI filtering inline
-                filtered_companies = apply_filter(companies_data, 'phi')
+                # Apply company-based compliance filtering
+                filtered_companies = apply_company_filtering(companies_data)
                 companies = filtered_companies.get('companies', [])
 
                 # Find company by name (case-insensitive)
