@@ -9,8 +9,10 @@ import os
 import sys
 import argparse
 import configparser
+import subprocess
 from getpass import getpass
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.exc import OperationalError
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -84,7 +86,7 @@ def get_db_credentials(config):
 
 def test_db_connection(creds):
     """
-    Tests the database connection with the provided credentials.
+    Tests the database connection, automatically creating database if needed.
 
     Args:
         creds: Dictionary with database credentials
@@ -98,6 +100,32 @@ def test_db_connection(creds):
     print("Testing database connection...")
     print("-"*60)
 
+    # First check if database exists using psql (more reliable than SQLAlchemy connection attempt)
+    check_cmd = f"sudo -u postgres psql -tAc \"SELECT 1 FROM pg_database WHERE datname='{creds['dbname']}'\""
+    try:
+        result = subprocess.run(check_cmd, shell=True, capture_output=True, text=True, timeout=5)
+        db_exists = "1" in result.stdout
+    except Exception:
+        # If check fails, assume database doesn't exist and try to create it
+        db_exists = False
+
+    # Create database if it doesn't exist
+    if not db_exists:
+        print(f"\n→ Database '{creds['dbname']}' does not exist. Creating it...")
+        create_cmd = f"sudo -u postgres psql -c \"CREATE DATABASE {creds['dbname']} OWNER {creds['user']};\""
+        try:
+            result = subprocess.run(create_cmd, shell=True, capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                print(f"✓ Database '{creds['dbname']}' created successfully!")
+            else:
+                print(f"\n✗ Failed to create database: {result.stderr}", file=sys.stderr)
+                print(f"  You may need to create it manually:")
+                print(f"  sudo -u postgres psql -c \"CREATE DATABASE {creds['dbname']} OWNER {creds['user']};\"")
+                return None, False
+        except Exception as e:
+            print(f"\n✗ Failed to create database: {e}", file=sys.stderr)
+            return None, False
+
     # Escape special characters in password
     escaped_password = quote_plus(creds['password'])
     conn_string = f"postgresql+psycopg://{creds['user']}:{escaped_password}@{creds['host']}:{creds['port']}/{creds['dbname']}"
@@ -107,12 +135,8 @@ def test_db_connection(creds):
         with engine.connect() as connection:
             print("\n✅ Database connection successful!")
             return conn_string, True
-    except Exception as e:
-        print(f"\n❌ Connection failed: {e}")
-        print("\nMake sure you have:")
-        print(f"  1. Created the database: CREATE DATABASE {creds['dbname']};")
-        print(f"  2. Created the user: CREATE USER {creds['user']} WITH PASSWORD 'your_password';")
-        print(f"  3. Granted permissions: GRANT ALL PRIVILEGES ON DATABASE {creds['dbname']} TO {creds['user']};")
+    except OperationalError as e:
+        print(f"\n❌ Connection failed: {e}", file=sys.stderr)
         return None, False
 
 
@@ -142,6 +166,154 @@ def save_config(config_path, creds, conn_string):
         config.write(configfile)
 
     print(f"\n✅ Configuration saved to: {config_path}")
+
+
+def migrate_schema():
+    """
+    Intelligently migrates database schema without losing data.
+
+    This function:
+    1. Inspects existing tables and columns
+    2. Compares with models defined in models.py
+    3. Adds missing columns (with defaults)
+    4. Creates missing tables
+    5. Does NOT drop columns or tables (safe for production)
+    """
+    print("\n" + "="*80)
+    print("DATABASE SCHEMA MIGRATION")
+    print("="*80)
+
+    app, db = _import_app()
+    with app.app_context():
+        inspector = inspect(db.engine)
+        existing_tables = inspector.get_table_names()
+
+        print(f"\nFound {len(existing_tables)} existing tables in database")
+
+        # Get all tables defined in models
+        model_tables = db.metadata.tables
+
+        # Track changes
+        tables_created = []
+        columns_added = []
+
+        # Create tables in dependency order (association tables last)
+        # First, create all base tables (no foreign keys to other app tables)
+        base_tables = []
+        association_tables = []
+
+        for table_name, table in model_tables.items():
+            # Association tables typically have multiple foreign keys and no primary key of their own
+            # or have 'link' in the name
+            if 'link' in table_name.lower() or len([c for c in table.columns if c.foreign_keys]) >= 2:
+                association_tables.append((table_name, table))
+            else:
+                base_tables.append((table_name, table))
+
+        # Create base tables first
+        for table_name, table in base_tables:
+            if table_name not in existing_tables:
+                # Table doesn't exist - create it
+                print(f"\n→ Creating new table: {table_name}")
+                table.create(db.engine)
+                tables_created.append(table_name)
+            else:
+                # Table exists - check for missing columns (below)
+                pass
+
+        # Then create association tables
+        for table_name, table in association_tables:
+            if table_name not in existing_tables:
+                # Table doesn't exist - create it
+                print(f"\n→ Creating new association table: {table_name}")
+                table.create(db.engine)
+                tables_created.append(table_name)
+            else:
+                # Table exists - check for missing columns (below)
+                pass
+
+        # Now check all tables for missing columns
+        for table_name, table in base_tables + association_tables:
+            if table_name in existing_tables:
+                # Table exists - check for missing columns
+                existing_columns = {col['name'] for col in inspector.get_columns(table_name)}
+                model_columns = {col.name for col in table.columns}
+                missing_columns = model_columns - existing_columns
+
+                if missing_columns:
+                    print(f"\n→ Updating table '{table_name}' - adding {len(missing_columns)} columns:")
+
+                    # Validate table name is a valid identifier
+                    import re
+                    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table_name):
+                        print(f"   ✗ Invalid table name format: {table_name}")
+                        continue
+
+                    for col_name in missing_columns:
+                        # Validate column name is a valid identifier
+                        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', col_name):
+                            print(f"   ✗ Invalid column name format: {col_name}")
+                            continue
+
+                        col = table.columns[col_name]
+                        col_type = col.type.compile(db.engine.dialect)
+
+                        # Build ALTER TABLE statement
+                        nullable = "NULL" if col.nullable else "NOT NULL"
+                        default = ""
+
+                        # Add default value if specified
+                        if col.default is not None:
+                            if hasattr(col.default, 'arg'):
+                                # Column default (e.g., default=True)
+                                default_val = col.default.arg
+                                if isinstance(default_val, str):
+                                    default = f"DEFAULT '{default_val}'"
+                                elif isinstance(default_val, bool):
+                                    default = f"DEFAULT {str(default_val).upper()}"
+                                else:
+                                    default = f"DEFAULT {default_val}"
+
+                        # For NOT NULL columns without default, make them nullable for migration
+                        if not col.nullable and not default:
+                            nullable = "NULL"
+                            print(f"   ⚠ Column '{col_name}' is NOT NULL but has no default - making nullable for safety")
+
+                        # Use quoted identifiers for safety
+                        sql = f'ALTER TABLE "{table_name}" ADD COLUMN "{col_name}" {col_type} {default} {nullable}'
+
+                        try:
+                            with db.engine.connect() as conn:
+                                conn.execute(text(sql))
+                                conn.commit()
+                            print(f"   ✓ Added column: {col_name} ({col_type})")
+                            columns_added.append(f"{table_name}.{col_name}")
+                        except Exception as e:
+                            print(f"   ✗ Failed to add column {col_name}: {e}")
+
+        # Summary
+        print("\n" + "="*80)
+        print("MIGRATION SUMMARY")
+        print("="*80)
+
+        if tables_created:
+            print(f"\n✓ Created {len(tables_created)} new table(s):")
+            for t in tables_created:
+                print(f"  - {t}")
+        else:
+            print("\n• No new tables created")
+
+        if columns_added:
+            print(f"\n✓ Added {len(columns_added)} new column(s):")
+            for c in columns_added:
+                print(f"  - {c}")
+        else:
+            print("\n• No new columns added")
+
+        if not tables_created and not columns_added:
+            print("\n✓ Schema is up to date - no changes needed")
+
+        print("\n" + "="*80)
 
 
 def init_db_headless(db_host, db_port, db_name, db_user, db_password, migrate_only=False):
@@ -182,25 +354,8 @@ def init_db_headless(db_host, db_port, db_name, db_user, db_password, migrate_on
     }
     save_config(config_path, creds, conn_string)
 
-    # Initialize database schema
-    print("\n→ Initializing database schema...")
-    try:
-        # Import app AFTER config is written so it loads with correct database
-        app, db = _import_app()
-
-        with app.app_context():
-            db.create_all()
-
-            from sqlalchemy import inspect
-            inspector = inspect(db.engine)
-            tables = inspector.get_table_names()
-
-            print(f"✓ Database schema initialized successfully!")
-            print(f"  Created {len(tables)} tables")
-
-    except Exception as e:
-        print(f"✗ Failed to initialize database schema: {e}", file=sys.stderr)
-        sys.exit(1)
+    # Run schema migration
+    migrate_schema()
 
     print("\n" + "="*80)
     print(" ✓ BrainHair Initialization Complete!")
@@ -252,26 +407,13 @@ def init_db():
         # Update app config with new connection string
         app.config['SQLALCHEMY_DATABASE_URI'] = conn_string
 
-        with app.app_context():
-            # Create all tables
-            db.create_all()
+        # Run schema migration (replaces db.create_all() - handles both creation and updates)
+        migrate_schema()
 
-            # Verify tables were created
-            from sqlalchemy import inspect
-            inspector = inspect(db.engine)
-            tables = inspector.get_table_names()
-
-            print(f"\n✅ Database schema initialized successfully!")
-            print(f"\nCreated tables:")
-            for table in tables:
-                print(f"  - {table}")
-
-            # Show some helpful info
-            print(f"\n📊 Database Info:")
-            print(f"  Database: {creds['dbname']}")
-            print(f"  User: {creds['user']}")
-            print(f"  Host: {creds['host']}:{creds['port']}")
-            print(f"  Tables: {len(tables)}")
+        print(f"\n📊 Database Info:")
+        print(f"  Database: {creds['dbname']}")
+        print(f"  User: {creds['user']}")
+        print(f"  Host: {creds['host']}:{creds['port']}")
 
     except Exception as e:
         print(f"\n❌ Failed to initialize database schema: {e}")
