@@ -6,10 +6,16 @@ HiveMatrix services and external systems (FreshService, Datto) with automatic
 PHI/CJIS filtering via Presidio.
 """
 
-from flask import render_template, g, jsonify, request
+from flask import render_template, g, jsonify, request, current_app
 from app import app, limiter
 from .auth import token_required, allow_localhost
 from .service_client import call_service
+import sys
+import os
+
+# Health check library
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from health_check import HealthChecker
 from .helm_logger import get_helm_logger
 from .presidio_filter import get_presidio_filter
 from typing import Optional, Dict, Any
@@ -1448,26 +1454,44 @@ def verify_alignment():
 
 # ==================== Utility Endpoints ====================
 
+@app.route('/health', methods=['GET'])
+@limiter.exempt
+def public_health():
+    """
+    Comprehensive public health check endpoint (no auth required).
+
+    Checks:
+    - PostgreSQL database connectivity
+    - Disk space
+    - Core service availability
+
+    Returns:
+        JSON: Detailed health status with HTTP 200 (healthy) or 503 (unhealthy/degraded)
+    """
+    # Get database if available
+    try:
+        from extensions import db
+    except:
+        db = None
+
+    # Initialize health checker
+    health_checker = HealthChecker(
+        service_name='brainhair',
+        db=db,
+        dependencies=[
+            ('core', 'http://localhost:5000')
+        ]
+    )
+
+    return health_checker.get_health()
+
+
 @app.route('/api/health', methods=['GET'])
 @token_required
 @limiter.exempt
 def health():
-    """Health check endpoint."""
-    return jsonify({
-        'status': 'healthy',
-        'service': 'brainhair',
-        'version': '1.0.0'
-    })
-
-
-@app.route('/health', methods=['GET'])
-@limiter.exempt
-def public_health():
-    """Public health check endpoint (no auth required)."""
-    return jsonify({
-        'status': 'healthy',
-        'service': 'brainhair'
-    })
+    """Authenticated health check endpoint (same as public for backwards compatibility)."""
+    return public_health()
 
 
 @app.route('/api/endpoints', methods=['GET'])
