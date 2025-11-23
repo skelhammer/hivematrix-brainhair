@@ -41,7 +41,7 @@ class PresidioFilter:
             "EMAIL_ADDRESS",
             "PHONE_NUMBER",
             "US_SSN",
-            "DATE_TIME",
+            # "DATE_TIME",  # Excluded - dates are operational data in ticketing context
             "LOCATION",
             "MEDICAL_LICENSE",
             "US_DRIVER_LICENSE",
@@ -57,7 +57,7 @@ class PresidioFilter:
             "PERSON",
             "US_SSN",
             "US_DRIVER_LICENSE",
-            "DATE_TIME",
+            # "DATE_TIME",  # Excluded - dates are operational data in ticketing context
             "LOCATION",
             "IP_ADDRESS"
         ]
