@@ -1,12 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Brainhair - AI API Gateway</title>
-    <script src="https://unpkg.com/lucide@latest"></script>
-</head>
-<body>
-    <div class="card">
+{% extends "layout.html" %}
+
+{% block title %}Brainhair - AI Assistant{% endblock %}
+
+{% block content %}
+<div class="card">
         <div class="card__header">
             <h1 class="card__title">Brainhair - AI Tech Assistant</h1>
         </div>
@@ -33,13 +30,4 @@
             </div>
         </div>
     </div>
-
-    <script>
-        // Initialize Lucide icons
-        lucide.createIcons();
-    </script>
-    <div class="version-footer">
-        <span class="version-footer__text">{{ app_service_name }} v{{ app_version }}</span>
-    </div>
-</body>
-</html>
+{% endblock %}
