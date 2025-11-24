@@ -3,16 +3,24 @@
 {% block title %}Brainhair - AI Assistant{% endblock %}
 
 {% block content %}
+    <div class="page-header">
+        <div class="page-header__content">
+            <h1 class="page-header__title">Brainhair - AI Assistant</h1>
+        </div>
+        <div class="page-header__actions">
+            <button class="btn" onclick="window.location.href='{{ url_for('index') }}'">
+                <span class="btn__label">
+                    <i data-lucide="arrow-left" class="btn__icon"></i>
+                    Back to Dashboard
+                </span>
+            </button>
+        </div>
+    </div>
+
     <div class="chat">
         <div class="chat__header">
             <h1 class="chat__title">Brainhair</h1>
             <div class="chat__header-actions">
-                <button class="btn" onclick="window.location.href='{{ url_for('index') }}'">
-                    <span class="btn__label">
-                        <i data-lucide="arrow-left" class="btn__icon"></i>
-                        Back to Dashboard
-                    </span>
-                </button>
                 <button class="btn chat__new-button" onclick="newChat()">
                     <span class="btn__label">
                         <i data-lucide="plus" class="btn__icon"></i>
