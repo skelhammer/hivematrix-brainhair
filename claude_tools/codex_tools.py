@@ -227,7 +227,7 @@ def get_company_contacts(company_account_number: str) -> list:
     Get all contacts (users/employees) for a specific company.
 
     Args:
-        company_account_number: Company account number (e.g., "965")
+        company_account_number: Company account number (e.g., "123456")
 
     Returns:
         [
@@ -246,7 +246,7 @@ def get_company_contacts(company_account_number: str) -> list:
         ]
 
     Example:
-        >>> contacts = get_company_contacts("965")
+        >>> contacts = get_company_contacts("123456")
         >>> active_users = [c for c in contacts if c['active']]
         >>> print(f"Active users: {len(active_users)}")
     """
@@ -265,7 +265,7 @@ def get_company_locations(company_account_number: str) -> list:
     Get all locations for a specific company.
 
     Args:
-        company_account_number: Company account number (e.g., "965")
+        company_account_number: Company account number (e.g., "123456")
 
     Returns:
         [
@@ -279,7 +279,7 @@ def get_company_locations(company_account_number: str) -> list:
         ]
 
     Example:
-        >>> locations = get_company_locations("965")
+        >>> locations = get_company_locations("123456")
         >>> for loc in locations:
         ...     print(f"{loc['name']}: {loc['address']}")
     """

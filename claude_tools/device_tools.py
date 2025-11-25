@@ -32,7 +32,7 @@ def get_devices(company_account_number: str = None, status: str = None) -> dict:
                 {
                     "id": "device-123",
                     "name": "WORKSTATION-001",
-                    "company_id": "965",
+                    "company_id": "123456",
                     "company_name": "Acme Corporation",
                     "status": "online",
                     "os": "Windows 11 Pro",
@@ -45,7 +45,7 @@ def get_devices(company_account_number: str = None, status: str = None) -> dict:
         }
 
     Example:
-        >>> devices = get_devices(company_account_number='965', status='online')
+        >>> devices = get_devices(company_account_number='123456', status='online')
         >>> for device in devices['devices']:
         ...     print(f"{device['name']} - {device['status']}")
     """
@@ -80,7 +80,7 @@ def get_device(device_id: str) -> dict:
         {
             "id": "device-123",
             "name": "WORKSTATION-001",
-            "company_id": "965",
+            "company_id": "123456",
             "company_name": "Acme Corporation",
             "status": "online",
             "os": "Windows 11 Pro",
@@ -129,7 +129,7 @@ def get_company_assets(company_account_number: str) -> dict:
     This provides more detailed asset information than the general device list.
 
     Args:
-        company_account_number: Company account number (e.g., "965")
+        company_account_number: Company account number (e.g., "123456")
 
     Returns:
         [
@@ -153,7 +153,7 @@ def get_company_assets(company_account_number: str) -> dict:
         ]
 
     Example:
-        >>> assets = get_company_assets("965")
+        >>> assets = get_company_assets("123456")
         >>> online_count = sum(1 for a in assets if a['online'])
         >>> print(f"Online devices: {online_count}/{len(assets)}")
     """
