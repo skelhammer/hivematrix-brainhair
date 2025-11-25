@@ -7,6 +7,7 @@ PHI/CJIS filtering via Presidio.
 """
 
 from flask import render_template, g, jsonify, request, current_app
+from urllib.parse import quote
 from app import app, limiter
 from .auth import token_required, allow_localhost
 from .service_client import call_service
@@ -138,8 +139,8 @@ def knowledge_search():
         return jsonify({'error': 'Query parameter "q" is required'}), 400
 
     try:
-        # Call KnowledgeTree service
-        response = call_service('knowledgetree', f'/api/search?q={query}')
+        # Call KnowledgeTree service (URL-encode query to prevent injection)
+        response = call_service('knowledgetree', f'/api/search?q={quote(query, safe="")}')
 
         if response.status_code == 200:
             data = response.json()
@@ -182,9 +183,14 @@ def knowledge_browse():
 
     path = request.args.get('path', '')
 
+    # Validate path to prevent traversal attacks
+    if '..' in path:
+        return jsonify({'error': 'Invalid path'}), 400
+
     try:
-        # Call KnowledgeTree service API endpoint
-        endpoint = f'/api/browse?path=/{path}' if path else '/api/browse?path=/'
+        # Call KnowledgeTree service API endpoint (URL-encode path to prevent injection)
+        safe_path = quote(path, safe="/") if path else ''
+        endpoint = f'/api/browse?path=/{safe_path}' if safe_path else '/api/browse?path=/'
         response = call_service('knowledgetree', endpoint)
 
         if response.status_code == 200:
