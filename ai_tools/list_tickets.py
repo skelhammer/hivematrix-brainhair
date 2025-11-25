@@ -18,14 +18,13 @@ def list_tickets(source="codex", company_id=None, status=None, limit=50):
         source: Source of tickets ("codex" or "psa")
         company_id: Optional company ID filter
         status: Optional status filter
-        filter_type: Type of filter to apply ("phi" or "cjis")
         limit: Maximum number of results
 
     Returns:
         List of tickets
     """
     auth = get_auth()
-
+    params = {}
 
     if source == "psa":
         params["limit"] = str(limit)
@@ -55,7 +54,6 @@ def get_ticket(ticket_id, source="psa"):
     Args:
         ticket_id: Ticket ID
         source: Source ("psa" or "codex")
-        filter_type: Filter type
 
     Returns:
         Ticket details
@@ -63,7 +61,7 @@ def get_ticket(ticket_id, source="psa"):
     auth = get_auth()
 
     endpoint = f"/api/{source}/ticket/{ticket_id}"
-    response = auth.get(endpoint, params={"filter": filter_type})
+    response = auth.get(endpoint)
 
     if response.status_code == 200:
         return response.json()
@@ -77,11 +75,10 @@ def main():
     """Main entry point."""
     if len(sys.argv) < 2:
         print("Usage:")
-        print("  List: python list_tickets.py list [source] [filter]")
-        print("  Get:  python list_tickets.py get <ticket_id> [source] [filter]")
+        print("  List: python list_tickets.py list [source]")
+        print("  Get:  python list_tickets.py get <ticket_id> [source]")
         print("")
         print("Sources: codex, psa")
-        print("Filters: phi, cjis")
         sys.exit(1)
 
     command = sys.argv[1]
@@ -90,11 +87,10 @@ def main():
     if command == "list":
         if len(sys.argv) > 2:
             source = sys.argv[2]
-        if len(sys.argv) > 3:
 
-        tickets = list_tickets(source=source, filter_type=filter_type)
+        tickets = list_tickets(source=source)
 
-        print(f"\n=== Tickets from {source} (Filter: {filter_type}) ===\n")
+        print(f"\n=== Tickets from {source} ===\n")
 
         if isinstance(tickets, list):
             for ticket in tickets:
@@ -119,11 +115,10 @@ def main():
         ticket_id = sys.argv[2]
         if len(sys.argv) > 3:
             source = sys.argv[3]
-        if len(sys.argv) > 4:
 
         ticket = get_ticket(ticket_id, source)
 
-        print(f"\n=== Ticket {ticket_id} from {source} (Filter: {filter_type}) ===\n")
+        print(f"\n=== Ticket {ticket_id} from {source} ===\n")
         print(json.dumps(ticket, indent=2))
 
     else:

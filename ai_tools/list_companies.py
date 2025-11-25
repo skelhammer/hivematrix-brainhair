@@ -35,7 +35,7 @@ def list_companies(filter_type="phi"):
 
 def main():
     """Main entry point."""
-
+    filter_type = sys.argv[1] if len(sys.argv) > 1 else "phi"
     companies = list_companies(filter_type)
 
     print(f"\n=== Companies (Filter: {filter_type}) ===\n")

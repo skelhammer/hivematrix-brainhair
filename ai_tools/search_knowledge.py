@@ -12,18 +12,17 @@ from brainhair_auth import get_auth
 
 def search_knowledge(query):
     """
-    Search KnowledgeTree with PHI/CJIS filtering.
+    Search KnowledgeTree.
 
     Args:
         query: Search query string
-        filter_type: Type of filter to apply ("phi" or "cjis")
 
     Returns:
         Search results
     """
     auth = get_auth()
 
-    response = auth.get("/api/knowledge/search", params={"q": query, "filter": filter_type})
+    response = auth.get("/api/knowledge/search", params={"q": query})
 
     if response.status_code == 200:
         try:
@@ -45,12 +44,12 @@ def browse_knowledge(path=""):
 
     Args:
         path: Path to browse (empty for root)
-        filter_type: Type of filter to apply ("phi" or "cjis")
 
     Returns:
         Browse results
     """
     auth = get_auth()
+    params = {}
 
     if path:
         params["path"] = path
@@ -70,8 +69,8 @@ def main():
     """Main entry point."""
     if len(sys.argv) < 2:
         print("Usage:")
-        print("  Search: python search_knowledge.py search <query> [filter]")
-        print("  Browse: python search_knowledge.py browse [path] [filter]")
+        print("  Search: python search_knowledge.py search <query>")
+        print("  Browse: python search_knowledge.py browse [path]")
         sys.exit(1)
 
     command = sys.argv[1]
@@ -82,20 +81,16 @@ def main():
             sys.exit(1)
 
         query = sys.argv[2]
-        if len(sys.argv) > 3:
-
         results = search_knowledge(query)
 
-        print(f"\n=== Search Results for '{query}' (Filter: {filter_type}) ===\n")
+        print(f"\n=== Search Results for '{query}' ===\n")
         print(json.dumps(results, indent=2))
 
     elif command == "browse":
         path = sys.argv[2] if len(sys.argv) > 2 else ""
-        if len(sys.argv) > 3:
-
         results = browse_knowledge(path)
 
-        print(f"\n=== Browse '{path or '/'}' (Filter: {filter_type}) ===\n")
+        print(f"\n=== Browse '{path or '/'}' ===\n")
         print(json.dumps(results, indent=2))
 
     else:
