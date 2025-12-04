@@ -3,11 +3,25 @@ import json
 import os
 import configparser
 import secrets
+from dotenv import load_dotenv
+
+# Load environment variables from .flaskenv FIRST
+# This ensures config is available whether running via run.py, gunicorn, or direct import
+load_dotenv('.flaskenv')
 
 app = Flask(__name__, instance_relative_config=True)
 
 # Set maximum content length for incoming requests (16MB)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+
+# --- Explicitly load all required configuration from environment variables ---
+# Must be set before structured logging so SERVICE_NAME is available
+app.config['CORE_SERVICE_URL'] = os.environ.get('CORE_SERVICE_URL')
+app.config['SERVICE_NAME'] = os.environ.get('SERVICE_NAME', 'brainhair')
+app.config['HELM_SERVICE_URL'] = os.environ.get('HELM_SERVICE_URL', 'http://localhost:5004')
+
+if not app.config['CORE_SERVICE_URL']:
+    raise ValueError("CORE_SERVICE_URL must be set in the .flaskenv file.")
 
 # Configure logging level from environment
 import logging
@@ -26,14 +40,6 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 # Secret key for session management
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
-
-# --- Explicitly load all required configuration from environment variables ---
-app.config['CORE_SERVICE_URL'] = os.environ.get('CORE_SERVICE_URL')
-app.config['SERVICE_NAME'] = os.environ.get('SERVICE_NAME', 'brainhair')
-app.config['HELM_SERVICE_URL'] = os.environ.get('HELM_SERVICE_URL', 'http://localhost:5004')
-
-if not app.config['CORE_SERVICE_URL']:
-    raise ValueError("CORE_SERVICE_URL must be set in the .flaskenv file.")
 
 # Load database connection from config file
 try:

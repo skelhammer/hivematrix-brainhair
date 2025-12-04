@@ -109,6 +109,39 @@ fi
 echo -e "${GREEN}✓ Module-specific setup complete${NC}"
 echo ""
 
+# Check for Claude Code CLI
+echo -e "${YELLOW}Checking for Claude Code CLI...${NC}"
+CLAUDE_BIN=""
+
+# Check common locations
+if [ -x "$HOME/.local/bin/claude" ]; then
+    CLAUDE_BIN="$HOME/.local/bin/claude"
+elif command -v claude &> /dev/null; then
+    CLAUDE_BIN=$(which claude)
+elif [ -x "/usr/local/bin/claude" ]; then
+    CLAUDE_BIN="/usr/local/bin/claude"
+fi
+
+if [ -n "$CLAUDE_BIN" ]; then
+    CLAUDE_VERSION=$($CLAUDE_BIN --version 2>/dev/null || echo "unknown")
+    echo -e "${GREEN}✓ Claude Code CLI found: $CLAUDE_BIN ($CLAUDE_VERSION)${NC}"
+else
+    echo -e "${YELLOW}⚠ Claude Code CLI not found${NC}"
+    echo ""
+    echo "  Brainhair requires Claude Code CLI to function."
+    echo "  Install with ONE of these methods:"
+    echo ""
+    echo "  Option 1 - NPM (recommended):"
+    echo "    npm install -g @anthropic-ai/claude-code"
+    echo ""
+    echo "  Option 2 - Direct download:"
+    echo "    Visit https://github.com/anthropics/claude-code/releases"
+    echo "    Download and place in ~/.local/bin/claude"
+    echo ""
+    echo "  After installing, run 'claude' once to authenticate."
+fi
+echo ""
+
 echo "=========================================="
 echo -e "${GREEN}  Brain Hair installed successfully!${NC}"
 echo "=========================================="
@@ -119,7 +152,8 @@ echo "  Core Service: http://localhost:5000"
 echo "  Helm Service: http://localhost:5004"
 echo ""
 echo "Next steps:"
-echo "  1. Ensure Core and Helm are running"
-echo "  2. Start Brain Hair: python run.py"
-echo "  3. Or use Helm to start the service"
+echo "  1. Ensure Claude Code CLI is installed and authenticated"
+echo "  2. Ensure Core and Helm are running"
+echo "  3. Start Brain Hair: python run.py"
+echo "  4. Or use Helm to start the service"
 echo ""

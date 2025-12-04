@@ -320,20 +320,37 @@ class ClaudeSession:
 
             # Invoke Claude Code with permissions bypassed and streaming JSON output
             # This is safe since we're in a controlled server environment and only accessing HiveMatrix data
-            # Try to find claude binary - check PATH first, then npx cache
+            # Try to find claude binary - check common locations first, then PATH, then npx cache
             import shutil
-            claude_bin = shutil.which('claude')
+            import glob
 
+            claude_bin = None
+
+            # Check common install locations first (handles systemd restricted PATH)
+            common_locations = [
+                os.path.expanduser('~/.local/bin/claude'),  # pip install / pipx
+                '/usr/local/bin/claude',                     # system-wide install
+                os.path.expanduser('~/.npm-global/bin/claude'),  # npm global
+            ]
+
+            for location in common_locations:
+                if os.path.isfile(location) and os.access(location, os.X_OK):
+                    claude_bin = location
+                    break
+
+            # Fall back to PATH lookup
             if not claude_bin:
-                # Fallback to npx cache
-                import glob
+                claude_bin = shutil.which('claude')
+
+            # Fall back to npx cache
+            if not claude_bin:
                 npx_cache = os.path.expanduser('~/.npm/_npx/*/node_modules/.bin/claude')
                 claude_bins = glob.glob(npx_cache)
                 if claude_bins:
                     claude_bin = claude_bins[0]
 
             if not claude_bin:
-                raise RuntimeError("Claude Code binary not found. Run: npx -y @anthropic-ai/claude-code or ensure 'claude' is in PATH")
+                raise RuntimeError("Claude Code binary not found. Install with: npm install -g @anthropic-ai/claude-code, or ensure 'claude' is in ~/.local/bin or PATH")
 
 
             cmd = [
